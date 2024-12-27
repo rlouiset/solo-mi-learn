@@ -40,6 +40,8 @@ def robyol_loss_func(z1: torch.Tensor, z2: torch.Tensor) -> torch.Tensor:
     Returns:
         torch.Tensor: Robin BYOL's loss.
     """
+    z1 = F.normalize(z1, dim=-1)
+    z2 = F.normalize(z2, dim=-1)
 
     align_loss = align_loss_func(z1, z2)
 

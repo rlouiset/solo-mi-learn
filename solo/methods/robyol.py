@@ -25,7 +25,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
-from solo.losses.robyol import uniform_loss_func, align_loss_func
+from solo.losses.robyol import robyol_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
@@ -194,9 +194,7 @@ class RoBYOL(BaseMomentumMethod):
         align_and_unif = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                align_and_unif += align_loss_func(Z[v1], Z[v2])
-        for v in range(self.num_crops):
-            align_and_unif += uniform_loss_func(Z[v])
+                align_and_unif += robyol_align_loss_func(Z[v1], Z[v2])
 
         # calculate std of features
         with torch.no_grad():
