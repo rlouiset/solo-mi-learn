@@ -12,7 +12,7 @@
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-conda activate py39
+conda activate solo_learn
 srun python3 main_pretrain.py \
     # path to training script folder
     --config-path scripts/pretrain/cifar/ \
