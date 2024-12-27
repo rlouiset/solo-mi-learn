@@ -194,7 +194,7 @@ class RoBYOL(BaseMomentumMethod):
         align_and_unif = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                align_and_unif += robyol_align_loss_func(Z[v1], Z[v2])
+                align_and_unif += robyol_loss_func(Z[v1], Z[v2])
 
         # calculate std of features
         with torch.no_grad():
