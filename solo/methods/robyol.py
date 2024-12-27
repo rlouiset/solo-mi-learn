@@ -191,10 +191,10 @@ class RoBYOL(BaseMomentumMethod):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
 
         # ------- negative cosine similarity loss -------
-        decreasing_align_and_unif = 0
+        align_and_unif = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                decreasing_align_and_unif += ((self.max_epochs - self.current_epoch) / self.max_epochs) *  robyol_loss_func(Z[v1], Z[v2])
+                align_and_unif += robyol_loss_func(Z[v1], Z[v2])
 
         # calculate std of features
         with torch.no_grad():
@@ -202,8 +202,9 @@ class RoBYOL(BaseMomentumMethod):
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
+            "align_and_unif": align_and_unif,
             "train_z_std": z_std,
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + class_loss
+        return neg_cos_sim + ((self.max_epochs - self.current_epoch) / self.max_epochs) * align_and_unif + class_loss
