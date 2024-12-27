@@ -183,7 +183,7 @@ class BYOL(BaseMomentumMethod):
         P = out["p"]
         Z_momentum = out["momentum_z"]
 
-        # ------- negative consine similarity loss -------
+        # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
