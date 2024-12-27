@@ -62,6 +62,7 @@ def main(cfg: DictConfig):
     # set_struct(..., False) disables this behavior and allows us to add more parameters
     # without making the user specify every single thing about the model
     OmegaConf.set_struct(cfg, False)
+    print(cfg)
     cfg = parse_cfg(cfg)
 
     seed_everything(cfg.seed)
