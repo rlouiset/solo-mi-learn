@@ -100,6 +100,8 @@ def add_and_assert_lightning_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictCon
 
 
 def parse_cfg(cfg: omegaconf.DictConfig):
+    print(cfg)
+
     # default values for checkpointer
     cfg = Checkpointer.add_and_assert_specific_cfg(cfg)
 
