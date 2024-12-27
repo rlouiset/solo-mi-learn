@@ -13,11 +13,4 @@
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
 conda activate solo_learn
-srun python3 main_pretrain.py \
-    # path to training script folder
-    --config-path scripts/pretrain/cifar/ \
-    # training config name
-    --config-name robyol.yaml
-    # add new arguments (e.g. those not defined in the yaml files)
-    # by doing ++new_argument=VALUE
-    # pytorch lightning's arguments can be added here as well.
+srun python3 main_pretrain.py --config-path scripts/pretrain/cifar/ --config-name robyol.yaml
