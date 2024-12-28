@@ -19,58 +19,101 @@
 
 from typing import Any, Dict, List, Sequence, Tuple
 
-import numpy as np
 import omegaconf
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from solo.losses.byol import byol_loss_func
-from solo.losses.robyol import robyol_loss_func
+from solo.losses.mocov3 import mocov3_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
 
-class RoBYOL(BaseMomentumMethod):
+class MoCoV3(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
-        """Implements BYOL (https://arxiv.org/abs/2006.07733).
+        """Implements MoCo V3 (https://arxiv.org/abs/2104.02057).
 
         Extra cfg settings:
             method_kwargs:
                 proj_output_dim (int): number of dimensions of projected features.
                 proj_hidden_dim (int): number of neurons of the hidden layers of the projector.
                 pred_hidden_dim (int): number of neurons of the hidden layers of the predictor.
+                temperature (float): temperature for the softmax in the contrastive loss.
         """
 
         super().__init__(cfg)
+
+        self.temperature: float = cfg.method_kwargs.temperature
 
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
         pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
 
-        # projector
-        self.projector = nn.Sequential(
-            nn.Linear(self.features_dim, proj_hidden_dim),
-            nn.BatchNorm1d(proj_hidden_dim),
-            nn.ReLU(),
-            nn.Linear(proj_hidden_dim, proj_output_dim),
-        )
+        if "resnet" in self.backbone_name:
+            # projector
+            self.projector = self._build_mlp(
+                2,
+                self.features_dim,
+                proj_hidden_dim,
+                proj_output_dim,
+            )
+            # momentum projector
+            self.momentum_projector = self._build_mlp(
+                2,
+                self.features_dim,
+                proj_hidden_dim,
+                proj_output_dim,
+            )
 
-        # momentum projector
-        self.momentum_projector = nn.Sequential(
-            nn.Linear(self.features_dim, proj_hidden_dim),
-            nn.BatchNorm1d(proj_hidden_dim),
-            nn.ReLU(),
-            nn.Linear(proj_hidden_dim, proj_output_dim),
-        )
+            # predictor
+            self.predictor = self._build_mlp(
+                2,
+                proj_output_dim,
+                pred_hidden_dim,
+                proj_output_dim,
+                last_bn=False,
+            )
+        else:
+            # specifically for ViT but allow all the other backbones
+            # projector
+            self.projector = self._build_mlp(
+                3,
+                self.features_dim,
+                proj_hidden_dim,
+                proj_output_dim,
+            )
+            # momentum projector
+            self.momentum_projector = self._build_mlp(
+                3,
+                self.features_dim,
+                proj_hidden_dim,
+                proj_output_dim,
+            )
+
+            # predictor
+            self.predictor = self._build_mlp(
+                2,
+                proj_output_dim,
+                pred_hidden_dim,
+                proj_output_dim,
+            )
+
         initialize_momentum_params(self.projector, self.momentum_projector)
 
-        # predictor
-        self.predictor = nn.Sequential(
-            nn.Linear(proj_output_dim, pred_hidden_dim),
-            nn.BatchNorm1d(pred_hidden_dim),
-            nn.ReLU(),
-            nn.Linear(pred_hidden_dim, proj_output_dim),
-        )
+    def _build_mlp(self, num_layers, input_dim, mlp_dim, output_dim, last_bn=True):
+        mlp = []
+        for l in range(num_layers):
+            dim1 = input_dim if l == 0 else mlp_dim
+            dim2 = output_dim if l == num_layers - 1 else mlp_dim
+
+            mlp.append(nn.Linear(dim1, dim2, bias=False))
+
+            if l < num_layers - 1:
+                mlp.append(nn.BatchNorm1d(dim2))
+                mlp.append(nn.ReLU(inplace=True))
+            elif last_bn:
+                # follow SimCLR's design
+                mlp.append(nn.BatchNorm1d(dim2, affine=False))
+
+        return nn.Sequential(*mlp)
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -83,11 +126,12 @@ class RoBYOL(BaseMomentumMethod):
             omegaconf.DictConfig: same as the argument, used to avoid errors.
         """
 
-        cfg = super(RoBYOL, RoBYOL).add_and_assert_specific_cfg(cfg)
+        cfg = super(MoCoV3, MoCoV3).add_and_assert_specific_cfg(cfg)
 
-        assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_output_dim")
+        assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.pred_hidden_dim")
+        assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.temperature")
 
         return cfg
 
@@ -128,25 +172,8 @@ class RoBYOL(BaseMomentumMethod):
 
         out = super().forward(X)
         z = self.projector(out["feats"])
-        p = self.predictor(z)
-        out.update({"z": z, "p": p})
-        return out
-
-    def multicrop_forward(self, X: torch.tensor) -> Dict[str, Any]:
-        """Performs the forward pass for the multicrop views.
-
-        Args:
-            X (torch.Tensor): batch of images in tensor format.
-
-        Returns:
-            Dict[]: a dict containing the outputs of the parent
-                and the projected features.
-        """
-
-        out = super().multicrop_forward(X)
-        z = self.projector(out["feats"])
-        p = self.predictor(z)
-        out.update({"z": z, "p": p})
+        q = self.predictor(z)
+        out.update({"q": q, "z": z})
         return out
 
     @torch.no_grad()
@@ -162,12 +189,12 @@ class RoBYOL(BaseMomentumMethod):
         """
 
         out = super().momentum_forward(X)
-        z = self.momentum_projector(out["feats"])
-        out.update({"z": z})
+        k = self.momentum_projector(out["feats"])
+        out.update({"k": k})
         return out
 
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
-        """Training step for BYOL reusing BaseMethod training step.
+        """Training step for MoCo V3 reusing BaseMethod training step.
 
         Args:
             batch (Sequence[Any]): a batch of data in the format of [img_indexes, [X], Y], where
@@ -175,36 +202,25 @@ class RoBYOL(BaseMomentumMethod):
             batch_idx (int): index of the batch.
 
         Returns:
-            torch.Tensor: total loss composed of RoBYOL and classification loss.
+            torch.Tensor: total loss composed of MoCo V3 and classification loss.
         """
 
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
-        Z = out["z"]
-        P = out["p"]
-        Z_momentum = out["momentum_z"]
+        Q = out["q"]
+        K = out["momentum_k"]
 
         # ------- negative cosine similarity loss -------
-        neg_cos_sim = 0
-        for v1 in range(self.num_large_crops):
-            for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+        neg_cos_sim = byol_loss_func(Q[0], K[1]) + byol_loss_func(Q[1], K[0])
 
-        # ------- align and unif loss -------
-        align_and_unif = 0
-        for v1 in range(self.num_large_crops):
-            for v2 in np.delete(range(self.num_crops), v1):
-                align_and_unif += robyol_loss_func(Z[v1], Z[v2])
-
-        # calculate std of features
-        with torch.no_grad():
-            z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+        contrastive_loss = mocov3_loss_func(
+            Q[0], K[1], temperature=self.temperature
+        ) + mocov3_loss_func(Q[1], K[0], temperature=self.temperature)
 
         metrics = {
-            "train_neg_cos_sim": neg_cos_sim,
-            "align_and_unif": align_and_unif,
-            "train_z_std": z_std,
+            "train_contrastive_loss": contrastive_loss,
+            "train_byol_loss":neg_cos_sim
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + ((self.max_epochs - self.current_epoch) / self.max_epochs) * align_and_unif + class_loss
+        return neg_cos_sim + ((self.max_epochs - self.current_epoch) / self.max_epochs) * contrastive_loss + class_loss
