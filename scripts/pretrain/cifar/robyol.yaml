@@ -19,6 +19,7 @@ method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
   pred_hidden_dim: 4096
+  temperature: 0.2
 momentum:
   base_tau: 0.99
   final_tau: 1.0
@@ -27,13 +28,13 @@ data:
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
-  num_workers: 8
+  num_workers: 4
 optimizer:
   name: "lars"
   batch_size: 256
-  lr: 1.0
-  classifier_lr: 0.1
-  weight_decay: 1e-5
+  lr: 0.3
+  classifier_lr: 0.3
+  weight_decay: 1e-6
   kwargs:
     clip_lr: True
     eta: 0.02
