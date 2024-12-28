@@ -23,11 +23,12 @@ import omegaconf
 import torch
 import torch.nn as nn
 from solo.losses.mocov3 import mocov3_loss_func
+from solo.losses.byol import byol_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
 
-class MoCoV3(BaseMomentumMethod):
+class RoBYOL(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
         """Implements MoCo V3 (https://arxiv.org/abs/2104.02057).
 
@@ -126,7 +127,7 @@ class MoCoV3(BaseMomentumMethod):
             omegaconf.DictConfig: same as the argument, used to avoid errors.
         """
 
-        cfg = super(MoCoV3, MoCoV3).add_and_assert_specific_cfg(cfg)
+        cfg = super(RoBYOL, RoBYOL).add_and_assert_specific_cfg(cfg)
 
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_output_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
