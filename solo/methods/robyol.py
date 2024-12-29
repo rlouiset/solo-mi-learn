@@ -202,4 +202,4 @@ class RoBYOL(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + barlow_loss * (self.max_epochs - self.current_epoch) / self.max_epochs + class_loss
+        return neg_cos_sim + barlow_loss + class_loss # * (self.max_epochs - self.current_epoch) / self.max_epochs
