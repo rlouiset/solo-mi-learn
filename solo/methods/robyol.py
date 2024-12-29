@@ -205,7 +205,7 @@ class RoBYOL(BaseMomentumMethod):
         ) / 2
 
         # ------- negative cosine similarity loss -------
-        neg_cos_sim = (byol_loss_func(p1, k2) + byol_loss_func(p2, k1)) / self.temperature
+        neg_cos_sim = byol_loss_func(p1, k2) + byol_loss_func(p2, k1)
 
         # ------- update queue -------
         keys = torch.stack((gather(k1), gather(k2)))
@@ -214,4 +214,6 @@ class RoBYOL(BaseMomentumMethod):
         self.log("train_nce_loss", nce_loss, on_epoch=True, sync_dist=True)
         self.log("neg_cos_sim", neg_cos_sim, on_epoch=True, sync_dist=True)
 
-        return ((self.max_epochs-self.current_epoch)/self.max_epochs) * nce_loss + neg_cos_sim + class_loss
+        # ((self.max_epochs-self.current_epoch)/self.max_epochs) * nce_loss +
+
+        return neg_cos_sim + class_loss
