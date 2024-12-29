@@ -95,5 +95,5 @@ def barlow_loss_func_no_align(
     cdif = (corr - diag).pow(2)
     cdif[~diag.bool()] *= lamb
     cdif[diag.bool()] *= 0.0
-    loss = cdif.sum() # scale_loss *
+    loss = scale_loss * cdif.sum()
     return loss
