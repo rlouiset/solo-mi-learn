@@ -100,6 +100,11 @@ class MoCoV3(BaseMomentumMethod):
 
         initialize_momentum_params(self.projector, self.momentum_projector)
 
+        # create the queue
+        self.register_buffer("queue", torch.randn(2, proj_output_dim, self.queue_size))
+        self.queue = nn.functional.normalize(self.queue, dim=1)
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
+
     def _build_mlp(self, num_layers, input_dim, mlp_dim, output_dim, last_bn=True):
         mlp = []
         for l in range(num_layers):
