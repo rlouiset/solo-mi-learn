@@ -28,7 +28,6 @@ from solo.losses.byol import byol_loss_func
 from solo.losses.barlow import barlow_loss_func_no_align
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
-import torch.nn.functional as F
 
 
 class RoBYOL(BaseMomentumMethod):
