@@ -24,6 +24,7 @@ import torch
 import torch.nn as nn
 from solo.losses.mocov2plus import mocov2plus_loss_func
 from solo.methods.base import BaseMomentumMethod
+from solo.utils.misc import gather, omegaconf_select
 from solo.utils.momentum import initialize_momentum_params
 
 
