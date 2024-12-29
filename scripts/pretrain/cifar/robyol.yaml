@@ -16,9 +16,9 @@ method: "robyol"
 backbone:
   name: "resnet18"
 method_kwargs:
-  proj_hidden_dim: 2048 # 4096
-  proj_output_dim: 2048 # 256
-  pred_hidden_dim: 2048 # 4096
+  proj_hidden_dim: 4096
+  proj_output_dim: 256
+  pred_hidden_dim: 4096
 momentum:
   base_tau: 0.99
   final_tau: 1.0
