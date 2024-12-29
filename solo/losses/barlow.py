@@ -23,7 +23,7 @@ import torch.distributed as dist
 
 
 def barlow_loss_func(
-    z1: torch.Tensor, z2: torch.Tensor, lamb: float = 5e-3, scale_loss: float = 0.025
+    z1: torch.Tensor, z2: torch.Tensor, lamb: float = 5e-3, scale_loss: float = 0.1
 ) -> torch.Tensor:
     """Computes Barlow Twins' loss given batch of projected features z1 from view 1 and
     projected features z2 from view 2.
