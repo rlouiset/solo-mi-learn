@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-barlow-cifar10" # change here for cifar100
+name: "robyol-barlow-2-cifar10" # change here for cifar100
 method: "robyol"
 backbone:
   name: "resnet18"
