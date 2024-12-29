@@ -191,7 +191,8 @@ class RoBYOL(BaseMomentumMethod):
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-                barlow_loss += barlow_loss_func(Z[v1], Z[v2])
+                # barlow_loss += barlow_loss_func(Z[v1], Z[v2])
+                barlow_loss += uniform_loss_func(Z[v1])
 
         # calculate std of features
         with torch.no_grad():
@@ -203,4 +204,4 @@ class RoBYOL(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + barlow_loss * (self.max_epochs - self.current_epoch) / self.max_epochs + class_loss
+        return neg_cos_sim + 0.005 * barlow_loss + class_loss # + barlow_loss * (self.max_epochs - self.current_epoch) / self.max_epochs + class_loss
