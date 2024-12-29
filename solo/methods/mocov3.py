@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 import omegaconf
 import torch
 import torch.nn as nn
-from solo.losses.mocov3 import mocov3_loss_func
+from solo.losses.mocov2plus import mocov2plus_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
@@ -42,6 +42,7 @@ class MoCoV3(BaseMomentumMethod):
         super().__init__(cfg)
 
         self.temperature: float = cfg.method_kwargs.temperature
+        self.queue_size: int = cfg.method_kwargs.queue_size
 
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
@@ -160,6 +161,25 @@ class MoCoV3(BaseMomentumMethod):
         extra_momentum_pairs = [(self.projector, self.momentum_projector)]
         return super().momentum_pairs + extra_momentum_pairs
 
+    @torch.no_grad()
+    def _dequeue_and_enqueue(self, keys: torch.Tensor):
+        """Adds new samples and removes old samples from the queue in a fifo manner.
+
+        Args:
+            keys (torch.Tensor): output features of the momentum backbone.
+        """
+
+        batch_size = keys.shape[1]
+        ptr = int(self.queue_ptr)  # type: ignore
+        assert self.queue_size % batch_size == 0  # for simplicity
+
+        # replace the keys at ptr (dequeue and enqueue)
+        keys = keys.permute(0, 2, 1)
+        self.queue[:, :, ptr : ptr + batch_size] = keys
+        ptr = (ptr + batch_size) % self.queue_size  # move pointer
+        self.queue_ptr[0] = ptr  # type: ignore
+
+
     def forward(self, X: torch.Tensor) -> Dict[str, Any]:
         """Performs forward pass of the online backbone, projector and predictor.
 
@@ -193,6 +213,10 @@ class MoCoV3(BaseMomentumMethod):
         out.update({"k": k})
         return out
 
+    # ------- update queue -------
+    keys = torch.stack((gather(k1), gather(k2)))
+    self._dequeue_and_enqueue(keys)
+
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
         """Training step for MoCo V3 reusing BaseMethod training step.
 
@@ -210,9 +234,11 @@ class MoCoV3(BaseMomentumMethod):
         Q = out["q"]
         K = out["momentum_k"]
 
-        contrastive_loss = mocov3_loss_func(
-            Q[0], K[1], temperature=self.temperature
-        ) + mocov3_loss_func(Q[1], K[0], temperature=self.temperature)
+        queue = self.queue.clone().detach()
+
+        contrastive_loss = (mocov2plus_loss_func(
+            Q[0], K[1], queue[1], temperature=self.temperature
+        ) + mocov3_loss_func(Q[1], K[0], queue[0], temperature=self.temperature))/2
 
         metrics = {
             "train_contrastive_loss": contrastive_loss,
