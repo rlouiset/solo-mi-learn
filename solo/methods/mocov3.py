@@ -214,10 +214,6 @@ class MoCoV3(BaseMomentumMethod):
         out.update({"k": k})
         return out
 
-    # ------- update queue -------
-    keys = torch.stack((gather(k1), gather(k2)))
-    self._dequeue_and_enqueue(keys)
-
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
         """Training step for MoCo V3 reusing BaseMethod training step.
 
@@ -240,6 +236,10 @@ class MoCoV3(BaseMomentumMethod):
         contrastive_loss = (mocov2plus_loss_func(
             Q[0], K[1], queue[1], temperature=self.temperature
         ) + mocov3_loss_func(Q[1], K[0], queue[0], temperature=self.temperature))/2
+
+        # ------- update queue -------
+        keys = torch.stack((gather(K[0]), gather(K[1])))
+        self._dequeue_and_enqueue(keys)
 
         metrics = {
             "train_contrastive_loss": contrastive_loss,
