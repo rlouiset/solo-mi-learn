@@ -21,7 +21,7 @@ method_kwargs:
   pred_hidden_dim: 4096
 momentum:
   base_tau: 0.99
-  final_tau: 1
+  final_tau: 0.999
 data:
   dataset: cifar10 # change here for cifar100
   train_path: "./datasets"
