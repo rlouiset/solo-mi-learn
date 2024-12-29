@@ -49,6 +49,7 @@ class RoBYOL(BaseMomentumMethod):
 
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
+        pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
 
         # projector
         self.projector = nn.Sequential(
@@ -64,6 +65,13 @@ class RoBYOL(BaseMomentumMethod):
             nn.Linear(proj_hidden_dim, proj_output_dim),
         )
         initialize_momentum_params(self.projector, self.momentum_projector)
+
+        # predictor
+        self.predictor = nn.Sequential(
+            nn.Linear(proj_output_dim, pred_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(pred_hidden_dim, proj_output_dim),
+        )
 
         # create the queue
         self.register_buffer("queue", torch.randn(2, proj_output_dim, self.queue_size))
@@ -85,6 +93,7 @@ class RoBYOL(BaseMomentumMethod):
 
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_output_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
+        assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.pred_hidden_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.temperature")
 
         cfg.method_kwargs.queue_size = omegaconf_select(cfg, "method_kwargs.queue_size", 65536)
@@ -93,13 +102,16 @@ class RoBYOL(BaseMomentumMethod):
 
     @property
     def learnable_params(self) -> List[dict]:
-        """Adds projector parameters together with parent's learnable parameters.
+        """Adds projector and predictor parameters to the parent's learnable parameters.
 
         Returns:
             List[dict]: list of learnable parameters.
         """
 
-        extra_learnable_params = [{"name": "projector", "params": self.projector.parameters()}]
+        extra_learnable_params = [
+            {"name": "projector", "params": self.projector.parameters()},
+            {"name": "predictor", "params": self.predictor.parameters()},
+        ]
         return super().learnable_params + extra_learnable_params
 
     @property
@@ -142,8 +154,9 @@ class RoBYOL(BaseMomentumMethod):
         """
 
         out = super().forward(X)
-        z = F.normalize(self.projector(out["feats"]), dim=-1)
-        out.update({"z": z})
+        z = self.projector(out["feats"])
+        p = self.predictor(z)
+        out.update({"z": F.normalize(z, p=2, dim=1), "p": F.normalize(p, p=2, dim=1)})
         return out
 
     @torch.no_grad()
@@ -181,6 +194,7 @@ class RoBYOL(BaseMomentumMethod):
         class_loss = out["loss"]
         q1, q2 = out["z"]
         k1, k2 = out["momentum_z"]
+        p1, p2 = out["p"]
 
         # ------- contrastive loss -------
         # symmetric
@@ -191,13 +205,13 @@ class RoBYOL(BaseMomentumMethod):
         ) / 2
 
         # ------- negative cosine similarity loss -------
-        # neg_cos_sim = (byol_loss_func(q1, k2) + byol_loss_func(q2, k1)) / self.temperature
+        neg_cos_sim = (byol_loss_func(p1, k2) + byol_loss_func(p2, k1)) / self.temperature
 
         # ------- update queue -------
         keys = torch.stack((gather(k1), gather(k2)))
         self._dequeue_and_enqueue(keys)
 
         self.log("train_nce_loss", nce_loss, on_epoch=True, sync_dist=True)
-        # self.log("neg_cos_sim", neg_cos_sim, on_epoch=True, sync_dist=True)
+        self.log("neg_cos_sim", neg_cos_sim, on_epoch=True, sync_dist=True)
 
-        return nce_loss + class_loss
+        return ((self.max_epochs-self.current_epoch)/self.max_epochs) * nce_loss + neg_cos_sim + class_loss

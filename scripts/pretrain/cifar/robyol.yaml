@@ -11,13 +11,14 @@ hydra:
   run:
     dir: .
 
-name: "robyol-cifar10" # change here for cifar100
+name: "robyol_mocov2-cifar10" # change here for cifar100
 method: "robyol"
 backbone:
   name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 256
+  pred_hidden_dim: 4096
   queue_size: 32768
   temperature: 0.2
 momentum:
