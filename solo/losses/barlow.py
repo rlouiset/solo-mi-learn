@@ -56,5 +56,5 @@ def barlow_loss_func(
     diag = torch.eye(D, device=corr.device)
     cdif = (corr - diag).pow(2)
     cdif[~diag.bool()] *= lamb
-    loss = 0.1 * cdif.sum()
+    loss = scale_loss * cdif.sum()
     return loss
