@@ -24,7 +24,8 @@ import omegaconf
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from solo.losses.byol import byol_loss_func, uniform_loss_func
+from solo.losses.byol import byol_loss_func
+from solo.losses.robyol import uniform_loss_func
 from solo.losses.barlow import barlow_loss_func_no_align
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
