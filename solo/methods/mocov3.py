@@ -199,7 +199,7 @@ class MoCoV3(BaseMomentumMethod):
         out = super().forward(X)
         z = self.projector(out["feats"])
         q = self.predictor(z)
-        out.update({"q": q, "z": z})
+        out.update({"q": F.normalize(q, dim=-1), "z": F.normalize(z, dim=-1)})
         return out
 
     @torch.no_grad()
@@ -216,7 +216,7 @@ class MoCoV3(BaseMomentumMethod):
 
         out = super().momentum_forward(X)
         k = self.momentum_projector(out["feats"])
-        out.update({"k": k})
+        out.update({"k": F.normalize(k, dim=-1)})
         return out
 
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
