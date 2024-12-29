@@ -22,99 +22,53 @@ from typing import Any, Dict, List, Sequence, Tuple
 import omegaconf
 import torch
 import torch.nn as nn
-from solo.losses.mocov3 import mocov3_loss_func
+import torch.nn.functional as F
+from solo.losses.mocov2plus import mocov2plus_loss_func
 from solo.losses.byol import byol_loss_func
 from solo.methods.base import BaseMomentumMethod
+from solo.utils.misc import gather, omegaconf_select
 from solo.utils.momentum import initialize_momentum_params
 
 
-class RoBYOL(BaseMomentumMethod):
+class MoCoV2Plus(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
-        """Implements MoCo V3 (https://arxiv.org/abs/2104.02057).
+        """Implements MoCo V2+ (https://arxiv.org/abs/2011.10566).
 
         Extra cfg settings:
             method_kwargs:
                 proj_output_dim (int): number of dimensions of projected features.
                 proj_hidden_dim (int): number of neurons of the hidden layers of the projector.
-                pred_hidden_dim (int): number of neurons of the hidden layers of the predictor.
                 temperature (float): temperature for the softmax in the contrastive loss.
+                queue_size (int): number of samples to keep in the queue.
         """
 
         super().__init__(cfg)
 
         self.temperature: float = cfg.method_kwargs.temperature
+        self.queue_size: int = cfg.method_kwargs.queue_size
 
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
-        pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
 
-        if "resnet" in self.backbone_name:
-            # projector
-            self.projector = self._build_mlp(
-                2,
-                self.features_dim,
-                proj_hidden_dim,
-                proj_output_dim,
-            )
-            # momentum projector
-            self.momentum_projector = self._build_mlp(
-                2,
-                self.features_dim,
-                proj_hidden_dim,
-                proj_output_dim,
-            )
+        # projector
+        self.projector = nn.Sequential(
+            nn.Linear(self.features_dim, proj_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(proj_hidden_dim, proj_output_dim),
+        )
 
-            # predictor
-            self.predictor = self._build_mlp(
-                2,
-                proj_output_dim,
-                pred_hidden_dim,
-                proj_output_dim,
-                last_bn=False,
-            )
-        else:
-            # specifically for ViT but allow all the other backbones
-            # projector
-            self.projector = self._build_mlp(
-                3,
-                self.features_dim,
-                proj_hidden_dim,
-                proj_output_dim,
-            )
-            # momentum projector
-            self.momentum_projector = self._build_mlp(
-                3,
-                self.features_dim,
-                proj_hidden_dim,
-                proj_output_dim,
-            )
-
-            # predictor
-            self.predictor = self._build_mlp(
-                2,
-                proj_output_dim,
-                pred_hidden_dim,
-                proj_output_dim,
-            )
-
+        # momentum projector
+        self.momentum_projector = nn.Sequential(
+            nn.Linear(self.features_dim, proj_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(proj_hidden_dim, proj_output_dim),
+        )
         initialize_momentum_params(self.projector, self.momentum_projector)
 
-    def _build_mlp(self, num_layers, input_dim, mlp_dim, output_dim, last_bn=True):
-        mlp = []
-        for l in range(num_layers):
-            dim1 = input_dim if l == 0 else mlp_dim
-            dim2 = output_dim if l == num_layers - 1 else mlp_dim
-
-            mlp.append(nn.Linear(dim1, dim2, bias=False))
-
-            if l < num_layers - 1:
-                mlp.append(nn.BatchNorm1d(dim2))
-                mlp.append(nn.ReLU(inplace=True))
-            elif last_bn:
-                # follow SimCLR's design
-                mlp.append(nn.BatchNorm1d(dim2, affine=False))
-
-        return nn.Sequential(*mlp)
+        # create the queue
+        self.register_buffer("queue", torch.randn(2, proj_output_dim, self.queue_size))
+        self.queue = nn.functional.normalize(self.queue, dim=1)
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -127,27 +81,25 @@ class RoBYOL(BaseMomentumMethod):
             omegaconf.DictConfig: same as the argument, used to avoid errors.
         """
 
-        cfg = super(RoBYOL, RoBYOL).add_and_assert_specific_cfg(cfg)
+        cfg = super(MoCoV2Plus, MoCoV2Plus).add_and_assert_specific_cfg(cfg)
 
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_output_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
-        assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.pred_hidden_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.temperature")
+
+        cfg.method_kwargs.queue_size = omegaconf_select(cfg, "method_kwargs.queue_size", 65536)
 
         return cfg
 
     @property
     def learnable_params(self) -> List[dict]:
-        """Adds projector and predictor parameters to the parent's learnable parameters.
+        """Adds projector parameters together with parent's learnable parameters.
 
         Returns:
             List[dict]: list of learnable parameters.
         """
 
-        extra_learnable_params = [
-            {"name": "projector", "params": self.projector.parameters()},
-            {"name": "predictor", "params": self.predictor.parameters()},
-        ]
+        extra_learnable_params = [{"name": "projector", "params": self.projector.parameters()}]
         return super().learnable_params + extra_learnable_params
 
     @property
@@ -161,20 +113,37 @@ class RoBYOL(BaseMomentumMethod):
         extra_momentum_pairs = [(self.projector, self.momentum_projector)]
         return super().momentum_pairs + extra_momentum_pairs
 
-    def forward(self, X: torch.Tensor) -> Dict[str, Any]:
-        """Performs forward pass of the online backbone, projector and predictor.
+    @torch.no_grad()
+    def _dequeue_and_enqueue(self, keys: torch.Tensor):
+        """Adds new samples and removes old samples from the queue in a fifo manner.
 
         Args:
-            X (torch.Tensor): batch of images in tensor format.
+            keys (torch.Tensor): output features of the momentum backbone.
+        """
+
+        batch_size = keys.shape[1]
+        ptr = int(self.queue_ptr)  # type: ignore
+        assert self.queue_size % batch_size == 0  # for simplicity
+
+        # replace the keys at ptr (dequeue and enqueue)
+        keys = keys.permute(0, 2, 1)
+        self.queue[:, :, ptr : ptr + batch_size] = keys
+        ptr = (ptr + batch_size) % self.queue_size  # move pointer
+        self.queue_ptr[0] = ptr  # type: ignore
+
+    def forward(self, X: torch.Tensor) -> Dict[str, Any]:
+        """Performs the forward pass of the online backbone and projector.
+
+        Args:
+            X (torch.Tensor): a batch of images in the tensor format.
 
         Returns:
-            Dict[str, Any]: a dict containing the outputs of the parent and the projected features.
+            Dict[str, Any]: a dict containing the outputs of the parent and query.
         """
 
         out = super().forward(X)
-        z = self.projector(out["feats"])
-        q = self.predictor(z)
-        out.update({"q": q, "z": z})
+        z = F.normalize(self.projector(out["feats"]), dim=-1)
+        out.update({"z": z})
         return out
 
     @torch.no_grad()
@@ -185,43 +154,50 @@ class RoBYOL(BaseMomentumMethod):
             X (torch.Tensor): batch of images in tensor format.
 
         Returns:
-            Dict[str, Any]: a dict containing the outputs of
-                the parent and the momentum projected features.
+            Dict[str, Any]: a dict containing the outputs of the parent and the key.
         """
 
         out = super().momentum_forward(X)
-        k = self.momentum_projector(out["feats"])
-        out.update({"k": k})
+        z = F.normalize(self.momentum_projector(out["feats"]), dim=-1)
+        out.update({"z": z})
         return out
 
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
-        """Training step for MoCo V3 reusing BaseMethod training step.
+        """
+        Training step for MoCo V2+ reusing BaseMomentumMethod training step.
 
         Args:
-            batch (Sequence[Any]): a batch of data in the format of [img_indexes, [X], Y], where
-                [X] is a list of size num_crops containing batches of images.
+            batch (Sequence[Any]): a batch of data in the
+                format of [img_indexes, [X], Y], where [X] is a list of size self.num_large_crops
+                containing batches of images.
             batch_idx (int): index of the batch.
 
         Returns:
-            torch.Tensor: total loss composed of MoCo V3 and classification loss.
+            torch.Tensor: total loss composed of MoCo loss and classification loss.
+
         """
 
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
-        Q = out["q"]
-        K = out["momentum_k"]
+        q1, q2 = out["z"]
+        k1, k2 = out["momentum_z"]
+
+        # ------- contrastive loss -------
+        # symmetric
+        queue = self.queue.clone().detach()
+        nce_loss = (
+            mocov2plus_loss_func(q1, k2, queue[1], self.temperature)
+            + mocov2plus_loss_func(q2, k1, queue[0], self.temperature)
+        ) / 2
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = byol_loss_func(Q[0], K[1]) + byol_loss_func(Q[1], K[0])
 
-        contrastive_loss = mocov3_loss_func(
-            Q[0], K[1], temperature=self.temperature
-        ) + mocov3_loss_func(Q[1], K[0], temperature=self.temperature)
+        # ------- update queue -------
+        keys = torch.stack((gather(k1), gather(k2)))
+        self._dequeue_and_enqueue(keys)
 
-        metrics = {
-            "train_contrastive_loss": contrastive_loss,
-            "train_byol_loss":neg_cos_sim
-        }
-        self.log_dict(metrics, on_epoch=True, sync_dist=True)
+        self.log("train_nce_loss", nce_loss, on_epoch=True, sync_dist=True)
+        self.log("neg_cos_sim", neg_cos_sim, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + ((self.max_epochs - self.current_epoch) / self.max_epochs) * contrastive_loss + class_loss
+        return neg_cos_sim + ((self.max_epochs - self.current_epoch) / self.max_epochs) * nce_loss + class_loss
