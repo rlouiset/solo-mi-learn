@@ -25,7 +25,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
-from solo.losses.barlow import barlow_loss_func
+from solo.losses.barlow import barlow_loss_func_no_align
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
@@ -190,7 +190,7 @@ class RoBYOL(BaseMomentumMethod):
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-                barlow_loss += barlow_loss_func(Z[v1], Z[v2])
+                barlow_loss += barlow_loss_func_no_align(Z[v1], Z[v2])
 
         # calculate std of features
         with torch.no_grad():
