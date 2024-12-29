@@ -45,6 +45,16 @@ def mocov2plus_loss_func(
     targets = torch.zeros(query.size(0), device=query.device, dtype=torch.long)
     return F.cross_entropy(logits, targets)
 
+def align_loss_func(x, y, alpha=2):
+    return (x - y).norm(p=2, dim=1).pow(alpha).mean()
+
+def entropy_loss_func(x, t=2):
+    return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).mean().log()
+
+def uniform_loss_func(x, t=2):
+    return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).log().mean()
+
+
 def decoupled_mocov2plus_loss_func(
     query: torch.Tensor, key: torch.Tensor, queue: torch.Tensor, temperature=0.1
 ) -> torch.Tensor:
@@ -62,12 +72,11 @@ def decoupled_mocov2plus_loss_func(
         torch.Tensor: MoCo loss.
     """
 
-    pos = torch.einsum("nc,nc->n", [query, key]).unsqueeze(-1)
-    neg = torch.einsum("nc,ck->nk", [query, queue])
+    align_loss = align_loss_func(query, key)
 
-    pos /= temperature
-    neg /= temperature
+    uniform_loss = uniform_loss_func(torch.cat((query, queue), dim=0))
 
-    loss = - torch.log(torch.exp(pos) / torch.exp(neg).sum(1)[:, None]).sum()
+    return align_loss + uniform_loss
+
 
     return loss
