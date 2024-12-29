@@ -30,7 +30,7 @@ from solo.utils.misc import gather, omegaconf_select
 from solo.utils.momentum import initialize_momentum_params
 
 
-class MoCoV2Plus(BaseMomentumMethod):
+class RoBYOL(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
         """Implements MoCo V2+ (https://arxiv.org/abs/2011.10566).
 
@@ -81,7 +81,7 @@ class MoCoV2Plus(BaseMomentumMethod):
             omegaconf.DictConfig: same as the argument, used to avoid errors.
         """
 
-        cfg = super(MoCoV2Plus, MoCoV2Plus).add_and_assert_specific_cfg(cfg)
+        cfg = super(RoBYOL, RoBYOL).add_and_assert_specific_cfg(cfg)
 
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_output_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
@@ -191,7 +191,7 @@ class MoCoV2Plus(BaseMomentumMethod):
         ) / 2
 
         # ------- negative cosine similarity loss -------
-        neg_cos_sim = byol_loss_func(Q[0], K[1]) + byol_loss_func(Q[1], K[0])
+        neg_cos_sim = (byol_loss_func(Q[0], K[1]) + byol_loss_func(Q[1], K[0])) / self.temperature
 
         # ------- update queue -------
         keys = torch.stack((gather(k1), gather(k2)))
