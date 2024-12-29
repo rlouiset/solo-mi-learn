@@ -51,8 +51,8 @@ def align_loss_func(x, y, alpha=2):
 def entropy_loss_func(x, t=2):
     return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).mean().log()
 
-def uniform_loss_func(x, t=2):
-    return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).log().mean()
+def uniform_loss_func(query, queue, t=2):
+    return torch.einsum("nc,ck->nk", [query, queue]).mul(2).mul(-t).exp().mean(-1).log().mean()
 
 
 def decoupled_mocov2plus_loss_func(
@@ -74,7 +74,7 @@ def decoupled_mocov2plus_loss_func(
 
     align_loss = align_loss_func(query, key)
 
-    uniform_loss = uniform_loss_func(torch.cat((query, queue), dim=0))
+    uniform_loss = uniform_loss_func(query, queue)
 
     return align_loss + uniform_loss
 
