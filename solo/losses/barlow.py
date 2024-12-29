@@ -93,7 +93,7 @@ def barlow_loss_func_no_align(
 
     diag = torch.eye(D, device=corr.device)
     cdif = (corr - diag).pow(2)
-    cdif[~diag.bool()] *= lamb
-    cdif[diag.bool()] *= 0.0
+    cdif[~diag] *= lamb
+    cdif[diag] *= 0.0
     loss = scale_loss * cdif.sum()
     return loss
