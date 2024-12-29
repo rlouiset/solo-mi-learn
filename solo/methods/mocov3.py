@@ -240,7 +240,7 @@ class MoCoV3(BaseMomentumMethod):
 
         contrastive_loss = (mocov2plus_loss_func(
             Q[0], K[1], queue[1], temperature=self.temperature
-        ) + mocov3_loss_func(Q[1], K[0], queue[0], temperature=self.temperature))/2
+        ) + mocov2plus_loss_func(Q[1], K[0], queue[0], temperature=self.temperature))/2
 
         # ------- update queue -------
         keys = torch.stack((gather(K[0]), gather(K[1])))
