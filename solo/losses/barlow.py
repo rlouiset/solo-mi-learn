@@ -84,16 +84,10 @@ def barlow_loss_func_no_align(
     z1 = bn(z1)
     z2 = bn(z2)
 
-    corr = torch.einsum("bi, bj -> ij", z1, z2) / N
+    # empirical cross-correlation matrix
+    c = self.bn(z1).T @ self.bn(z2)
 
-    if dist.is_available() and dist.is_initialized():
-        dist.all_reduce(corr)
-        world_size = dist.get_world_size()
-        corr /= world_size
-
-    diag = torch.eye(D, device=corr.device)
-    cdif = (corr - diag).pow(2)
-    cdif[~diag] *= lamb
-    cdif[diag] *= 0.0
-    loss = scale_loss * cdif.sum()
+    # on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
+    off_diag = off_diagonal(c).pow_(2).sum()
+    loss = lambd * off_diag
     return loss
