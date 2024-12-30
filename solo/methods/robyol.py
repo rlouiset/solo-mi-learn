@@ -192,8 +192,8 @@ class RoBYOL(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
                 # barlow_loss += barlow_loss_func(Z[v1], Z[v2])
-
-        barlow_loss += align_loss_func(Z[v1], Z[v2]) + uniform_loss_func(F.normalize(Z[v1], dim=-1))
+                barlow_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
+                barlow_loss += align_loss_func(Z[v1], Z[v2])
 
         # calculate std of features
         with torch.no_grad():
