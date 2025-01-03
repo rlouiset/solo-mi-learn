@@ -124,6 +124,14 @@ class BarlowTwins(BaseMethod):
         # ------- barlow twins loss -------
         barlow_loss = barlow_loss_func(z1, z2, lamb=self.lamb, scale_loss=self.scale_loss)
 
-        self.log("train_barlow_loss", barlow_loss, on_epoch=True, sync_dist=True)
+        # calculate std of features
+        with torch.no_grad():
+            z_std = F.normalize(torch.stack(out["z"]), dim=-1).std(dim=1).mean()
+
+        metrics = {
+            "train_barlow_loss": barlow_loss,
+            "train_z_std": z_std,
+        }
+        self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
         return barlow_loss + class_loss
