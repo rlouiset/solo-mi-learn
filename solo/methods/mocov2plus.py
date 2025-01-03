@@ -193,6 +193,14 @@ class MoCoV2Plus(BaseMomentumMethod):
         keys = torch.stack((gather(k1), gather(k2)))
         self._dequeue_and_enqueue(keys)
 
-        self.log("train_nce_loss", nce_loss, on_epoch=True, sync_dist=True)
+        # calculate std of features
+        with torch.no_grad():
+            z_std = F.normalize(torch.stack(out["z"]), dim=-1).std(dim=1).mean()
+
+        metrics = {
+            "train_nce_loss": nce_loss,
+            "train_z_std": z_std,
+        }
+        self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
         return nce_loss + class_loss
