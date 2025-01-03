@@ -25,7 +25,7 @@ import torch.nn as nn
 from solo.losses.barlow import barlow_loss_func
 from solo.methods.base import BaseMethod
 from solo.utils.misc import omegaconf_select
-
+import torch.nn.functional as F
 
 class BarlowTwins(BaseMethod):
     def __init__(self, cfg: omegaconf.DictConfig):

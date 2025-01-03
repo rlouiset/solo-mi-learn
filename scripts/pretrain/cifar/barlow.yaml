@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "barlow_twins-cifar100" # change here for cifar100
+name: "barlow_twins-cifar10" # change here for cifar100
 method: "barlow_twins"
 backbone:
   name: "resnet18"
@@ -20,7 +20,7 @@ method_kwargs:
   proj_output_dim: 2048
   scale_loss: 0.1
 data:
-  dataset: cifar100 # change here for cifar100
+  dataset: cifar10 # change here for cifar100
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
