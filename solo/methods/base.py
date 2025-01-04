@@ -579,8 +579,7 @@ class BaseMethod(pl.LightningModule):
         batch_size = targets.size(0)
 
         if targets.size(1) == 1:
-            # targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes)
-            targets = targets[:, 0]
+            targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).long()
         out = self.base_validation_step(X, targets)
 
         """try:
