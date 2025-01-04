@@ -32,8 +32,8 @@ data:
 optimizer:
   name: "sgd"
   batch_size: 512
-  lr: 0.6
-  classifier_lr: 0.6
+  lr: 0.3
+  classifier_lr: 0.3
   weight_decay: 1e-4
 scheduler:
   name: "warmup_cosine"
