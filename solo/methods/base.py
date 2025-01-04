@@ -552,8 +552,6 @@ class BaseMethod(pl.LightningModule):
         Returns:
             Dict: dict containing the classification loss, logits, features, acc@1 and acc@5.
         """
-        print(targets.shape)
-
         return self._base_shared_step(X, targets)
 
     def validation_step(
@@ -580,9 +578,13 @@ class BaseMethod(pl.LightningModule):
         X, targets = batch
         batch_size = targets.size(0)
 
-        print(targets.shape)
+        print(targets)
 
-        out = self.base_validation_step(X, targets)
+        try:
+            out = self.base_validation_step(X, targets)
+        except:
+            print(targets)
+            out = {"loss":0, "acc1": 0, "acc5": 0}
 
         if self.knn_eval and not self.trainer.sanity_checking:
             self.knn(test_features=out.pop("feats").detach(), test_targets=targets.detach())
