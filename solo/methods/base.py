@@ -489,8 +489,9 @@ class BaseMethod(pl.LightningModule):
         Returns:
             Dict: dict containing the classification loss, logits, features, acc@1 and acc@5.
         """
-        if targets.size(1) == 1:
-            targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
+        if len(targets.shape) > 1:
+            if targets.size(1) == 1:
+                targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
 
         return self._base_shared_step(X, targets)
 
@@ -583,8 +584,9 @@ class BaseMethod(pl.LightningModule):
         X, targets = batch
         batch_size = targets.size(0)
 
-        if targets.size(1) == 1:
-            targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
+        if len(targets.shape) > 1:
+            if targets.size(1) == 1:
+                targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
         out = self.base_validation_step(X, targets)
 
         """try:
