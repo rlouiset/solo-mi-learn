@@ -489,6 +489,8 @@ class BaseMethod(pl.LightningModule):
         Returns:
             Dict: dict containing the classification loss, logits, features, acc@1 and acc@5.
         """
+        if targets.size(1) == 1:
+            targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
 
         return self._base_shared_step(X, targets)
 

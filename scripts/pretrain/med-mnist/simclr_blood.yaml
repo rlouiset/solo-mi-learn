@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "bloodmnist"
+name: "bloodmnist_simclr"
 method: "simclr"
 backbone:
   name: "resnet18"
