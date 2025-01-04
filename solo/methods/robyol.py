@@ -26,7 +26,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
 from solo.losses.robyol import uniform_loss_func, align_loss_func
-from solo.losses.barlow import barlow_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
@@ -187,13 +186,12 @@ class RoBYOL(BaseMomentumMethod):
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
-        barlow_loss = 0
+        au_loss = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-                # barlow_loss += barlow_loss_func(Z[v1], Z[v2])
-                barlow_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
-                barlow_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
+                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
+                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
         # calculate std of features
         with torch.no_grad():
@@ -205,4 +203,4 @@ class RoBYOL(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + 0.00005 * barlow_loss + class_loss #  * (self.max_epochs - self.current_epoch) / self.max_epochs
+        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss

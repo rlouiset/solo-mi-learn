@@ -11,14 +11,18 @@ hydra:
   run:
     dir: .
 
-name: "simclr-blood"
-method: "simclr"
+name: "mocov2plus-blood" # change here for cifar100
+method: "mocov2plus"
 backbone:
   name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 256
+  queue_size: 32768
   temperature: 0.2
+momentum:
+  base_tau: 0.99
+  final_tau: 0.999
 data:
   dataset: BloodMNIST
   train_path: "./datasets"
@@ -26,15 +30,11 @@ data:
   format: "image_folder"
   num_workers: 4
 optimizer:
-  name: "lars"
+  name: "sgd"
   batch_size: 512
-  lr: 0.8
-  classifier_lr: 0.2
+  lr: 0.6
+  classifier_lr: 0.6
   weight_decay: 1e-4
-  kwargs:
-    clip_lr: True
-    eta: 0.02
-    exclude_bias_n_norm: True
 scheduler:
   name: "warmup_cosine"
 checkpoint:
