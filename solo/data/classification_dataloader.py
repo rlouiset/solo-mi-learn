@@ -28,6 +28,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.datasets import STL10, ImageFolder
+import medmnist
 
 try:
     from solo.data.h5_dataset import H5Dataset
@@ -91,6 +92,24 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         ),
     }
 
+    bloodmnist_pipeline = {
+        "T_train": transforms.Compose(
+            [
+                transforms.RandomResizedCrop(32, scale=(0.08, 1)),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)], p=0.8),
+                transforms.RandomGrayscale(p=0.2),
+                transforms.Normalize((0.4914, 0.4823, 0.4466), (0.247, 0.243, 0.261)),
+            ]
+        ),
+        "T_val": transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4823, 0.4466), (0.247, 0.243, 0.261)),
+            ]
+        ),
+    }
+
     stl_pipeline = {
         "T_train": transforms.Compose(
             [
@@ -133,6 +152,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
     pipelines = {
         "cifar10": cifar_pipeline,
         "cifar100": cifar_pipeline,
+        "BloodMNIST": bloodmnist_pipeline,
         "stl10": stl_pipeline,
         "imagenet100": imagenet_pipeline,
         "imagenet": imagenet_pipeline,
@@ -185,7 +205,8 @@ def prepare_datasets(
         sandbox_folder = Path(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
         val_data_path = sandbox_folder / "datasets"
 
-    assert dataset in ["cifar10", "cifar100", "stl10", "imagenet", "imagenet100", "custom"]
+    assert dataset in ["cifar10", "cifar100", "stl10", "imagenet", "imagenet100", "custom",
+                       "BloodMNIST"]
 
     if dataset in ["cifar10", "cifar100"]:
         DatasetClass = vars(torchvision.datasets)[dataset.upper()]
@@ -199,6 +220,22 @@ def prepare_datasets(
         val_dataset = DatasetClass(
             val_data_path,
             train=False,
+            download=download,
+            transform=T_val,
+        )
+
+    elif dataset in ["BloodMNIST"]:
+        DatasetClass = vars(medmnist)[dataset]
+        train_dataset = DatasetClass(
+            train_data_path,
+            split="train",
+            download=True,
+            transform=T_train,
+        )
+        DatasetClass = vars(torchvision.datasets)[dataset]
+        val_dataset = DatasetClass(
+            val_data_path,
+            split="test",
             download=download,
             transform=T_val,
         )
