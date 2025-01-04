@@ -227,14 +227,14 @@ def prepare_datasets(
     elif dataset in ["BloodMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = DatasetClass(
-            train_data_path,
+            root=train_data_path,
             split="train",
             download=True,
             transform=T_train,
         )
         DatasetClass = vars(torchvision.datasets)[dataset]
         val_dataset = DatasetClass(
-            val_data_path,
+            root=val_data_path,
             split="test",
             download=download,
             transform=T_val,

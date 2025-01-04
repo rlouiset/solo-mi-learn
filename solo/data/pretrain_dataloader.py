@@ -332,7 +332,7 @@ def prepare_datasets(
     elif dataset in ["BloodMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = dataset_with_index(DatasetClass)(
-            train_data_path,
+            root=train_data_path,
             split="train",
             download=download,
             transform=transform,
