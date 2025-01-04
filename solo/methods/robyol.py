@@ -47,6 +47,8 @@ class RoBYOL(BaseMomentumMethod):
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
         pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
 
+        self.au_scale_loss = cfg.method_kwargs.au_scale_loss
+
         # projector
         self.projector = nn.Sequential(
             nn.Linear(self.features_dim, proj_hidden_dim),
