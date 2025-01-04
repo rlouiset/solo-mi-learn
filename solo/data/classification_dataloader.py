@@ -232,7 +232,7 @@ def prepare_datasets(
             download=True,
             transform=T_train,
         )
-        DatasetClass = vars(torchvision.datasets)[dataset]
+        DatasetClass = vars(medmnist)[dataset]
         val_dataset = DatasetClass(
             root=val_data_path,
             split="test",
