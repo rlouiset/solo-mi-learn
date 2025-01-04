@@ -24,7 +24,7 @@ import torch
 import torch.nn as nn
 from solo.losses.simclr import simclr_loss_func
 from solo.methods.base import BaseMethod
-
+import torch.nn.functional as F
 
 class SimCLR(BaseMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
@@ -142,6 +142,14 @@ class SimCLR(BaseMethod):
             temperature=self.temperature,
         )
 
-        self.log("train_nce_loss", nce_loss, on_epoch=True, sync_dist=True)
+        # calculate std of features
+        with torch.no_grad():
+            z_std = F.normalize(torch.stack(out["z"]), dim=-1).std(dim=1).mean()
+
+        metrics = {
+            "train_nce_loss": nce_loss,
+            "train_z_std": z_std,
+        }
+        self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
         return nce_loss + class_loss
