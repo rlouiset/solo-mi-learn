@@ -27,6 +27,7 @@ from solo.losses.dino import DINOLoss
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.misc import omegaconf_select, trunc_normal_
 from solo.utils.momentum import initialize_momentum_params
+import torch.nn.functional as F
 
 
 class DINOHead(nn.Module):
