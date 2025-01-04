@@ -22,7 +22,7 @@ method_kwargs:
 data:
   dataset: cifar10 # change here for cifar100
   train_path: "./datasets"
-  val_path: "datasets/imagenet100/val"
+  val_path: "./datasets"
   format: "image_folder"
   num_workers: 4
 optimizer:
