@@ -552,6 +552,7 @@ class BaseMethod(pl.LightningModule):
         Returns:
             Dict: dict containing the classification loss, logits, features, acc@1 and acc@5.
         """
+        print(targets.shape)
 
         return self._base_shared_step(X, targets)
 
