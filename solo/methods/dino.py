@@ -315,7 +315,15 @@ class DINO(BaseMomentumMethod):
         # ------- contrastive loss -------
         dino_loss = self.dino_loss_func(p, momentum_p)
 
-        self.log("dino_loss", dino_loss, on_epoch=True, sync_dist=True)
+        # calculate std of features
+        with torch.no_grad():
+            z_std = F.normalize(torch.stack(out["z"]), dim=-1).std(dim=1).mean()
+
+        metrics = {
+            "dino_loss": dino_loss,
+            "train_z_std": z_std,
+        }
+        self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
         return dino_loss + class_loss
 
