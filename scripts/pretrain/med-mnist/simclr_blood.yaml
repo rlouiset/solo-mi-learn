@@ -20,7 +20,7 @@ method_kwargs:
   proj_output_dim: 256
   temperature: 0.2
 data:
-  dataset: bloodmnist
+  dataset: BloodMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
