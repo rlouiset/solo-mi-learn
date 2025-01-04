@@ -579,6 +579,8 @@ class BaseMethod(pl.LightningModule):
         X, targets = batch
         batch_size = targets.size(0)
 
+        print(targets.shape)
+
         out = self.base_validation_step(X, targets)
 
         if self.knn_eval and not self.trainer.sanity_checking:
