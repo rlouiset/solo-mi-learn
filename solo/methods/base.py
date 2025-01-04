@@ -469,7 +469,10 @@ class BaseMethod(pl.LightningModule):
         loss = F.cross_entropy(logits, targets, ignore_index=-1)
         # handle when the number of classes is smaller than 5
         top_k_max = min(5, logits.size(1))
-        acc1, acc5 = accuracy_at_k(logits, targets, top_k=(1, top_k_max))
+        try:
+            acc1, acc5 = accuracy_at_k(logits, targets, top_k=(1, top_k_max))
+        except:
+            acc1, acc5 = accuracy_at_k(logits, targets.argmax(1), top_k=(1, top_k_max))
 
         out.update({"loss": loss, "acc1": acc1, "acc5": acc5})
         return out
