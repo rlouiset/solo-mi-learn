@@ -578,13 +578,15 @@ class BaseMethod(pl.LightningModule):
         X, targets = batch
         batch_size = targets.size(0)
 
-        print(targets)
+        if targets.size(1) == 1:
+            targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes)
+        out = self.base_validation_step(X, targets)
 
-        try:
+        """try:
             out = self.base_validation_step(X, targets)
         except:
             print(targets)
-            out = {"loss":0, "acc1": 0, "acc5": 0}
+            out = {"loss":0, "acc1": 0, "acc5": 0}"""
 
         if self.knn_eval and not self.trainer.sanity_checking:
             self.knn(test_features=out.pop("feats").detach(), test_targets=targets.detach())
