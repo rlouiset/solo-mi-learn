@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "mocov2plus-blood" # change here for cifar100
+name: "mocov2plus-path" # change here for cifar100
 method: "mocov2plus"
 backbone:
   name: "resnet18"
@@ -24,7 +24,7 @@ momentum:
   base_tau: 0.99
   final_tau: 0.999
 data:
-  dataset: BloodMNIST
+  dataset: PathMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
