@@ -92,7 +92,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         ),
     }
 
-    bloodmnist_pipeline = {
+    medmnist_pipeline = {
         "T_train": transforms.Compose(
             [
                 transforms.RandomResizedCrop(28, scale=(0.2, 1)),
@@ -153,7 +153,8 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
     pipelines = {
         "cifar10": cifar_pipeline,
         "cifar100": cifar_pipeline,
-        "BloodMNIST": bloodmnist_pipeline,
+        "BloodMNIST": medmnist_pipeline,
+        "PathMNIST": medmnist_pipeline,
         "stl10": stl_pipeline,
         "imagenet100": imagenet_pipeline,
         "imagenet": imagenet_pipeline,
@@ -207,7 +208,7 @@ def prepare_datasets(
         val_data_path = sandbox_folder / "datasets"
 
     assert dataset in ["cifar10", "cifar100", "stl10", "imagenet", "imagenet100", "custom",
-                       "BloodMNIST"]
+                       "BloodMNIST", "PathMNIST"]
 
     if dataset in ["cifar10", "cifar100"]:
         DatasetClass = vars(torchvision.datasets)[dataset.upper()]
@@ -225,7 +226,7 @@ def prepare_datasets(
             transform=T_val,
         )
 
-    elif dataset in ["BloodMNIST"]:
+    elif dataset in ["BloodMNIST", "PathMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = DatasetClass(
             root=train_data_path,

@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "simclr-blood"
+name: "simclr-path"
 method: "simclr"
 backbone:
   name: "resnet18"
@@ -20,7 +20,7 @@ method_kwargs:
   proj_output_dim: 256
   temperature: 0.2
 data:
-  dataset: BloodMNIST
+  dataset: PathMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
