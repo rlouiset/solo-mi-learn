@@ -226,7 +226,7 @@ def prepare_datasets(
             transform=T_val,
         )
 
-    elif dataset in ["BloodMNIST", "PathMNIST"]:
+    elif dataset in ["BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = DatasetClass(
             root=train_data_path,
