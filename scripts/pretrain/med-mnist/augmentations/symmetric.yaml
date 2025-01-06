@@ -13,12 +13,10 @@
   gaussian_blur:
     prob: 0.0
   solarization:
-    prob: 0.0
+    prob: 0.2
   equalization:
     prob: 0.0
   horizontal_flip:
-    prob: 0.5
-  vertical_flip: # PATH MNIST
     prob: 0.5
   crop_size: 28
   num_crops: 2
