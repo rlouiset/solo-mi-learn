@@ -210,7 +210,7 @@ def prepare_datasets(
         val_data_path = sandbox_folder / "datasets"
 
     assert dataset in ["cifar10", "cifar100", "stl10", "imagenet", "imagenet100", "custom",
-                       "BloodMNIST", "PathMNIST"]
+                       "BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST"]
 
     if dataset in ["cifar10", "cifar100"]:
         DatasetClass = vars(torchvision.datasets)[dataset.upper()]
