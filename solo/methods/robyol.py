@@ -74,9 +74,9 @@ class RoBYOL(BaseMomentumMethod):
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
-        self.queue_size = 8192
+        self.queue_size = 4096
         # create the queue
-        self.register_buffer("queue", torch.randn(self.queue_size, proj_output_dim))
+        self.register_buffer("queue", torch.randn(self.queue_size, proj_output_dim).detach())
         self.queue = nn.functional.normalize(self.queue, dim=-1)
         self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
 
@@ -171,7 +171,7 @@ class RoBYOL(BaseMomentumMethod):
         assert self.queue_size % batch_size == 0  # for simplicity
 
         # replace the keys at ptr (dequeue and enqueue)
-        self.queue[ptr : ptr + batch_size] = keys
+        self.queue[ptr : ptr + batch_size, :] = keys
         ptr = (ptr + batch_size) % self.queue_size  # move pointer
         self.queue_ptr[0] = ptr  # type: ignore
 
