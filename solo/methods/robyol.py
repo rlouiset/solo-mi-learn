@@ -76,7 +76,7 @@ class RoBYOL(BaseMomentumMethod):
 
         self.queue_size = 16384
         # create the queue
-        self.register_buffer("queue", torch.randn(proj_output_dim, self.queue_size))
+        self.register_buffer("queue", torch.randn(self.queue_size), proj_output_dim)
         self.queue = nn.functional.normalize(self.queue, dim=1)
         self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
 
@@ -166,13 +166,12 @@ class RoBYOL(BaseMomentumMethod):
             keys (torch.Tensor): output features of the momentum backbone.
         """
 
-        batch_size = keys.shape[1]
+        batch_size = keys.shape[0]
         ptr = int(self.queue_ptr)  # type: ignore
         assert self.queue_size % batch_size == 0  # for simplicity
 
         # replace the keys at ptr (dequeue and enqueue)
-        keys = keys.permute(0, 2, 1)
-        self.queue[:, :, ptr : ptr + batch_size] = keys
+        self.queue[ptr : ptr + batch_size] = keys
         ptr = (ptr + batch_size) % self.queue_size  # move pointer
         self.queue_ptr[0] = ptr  # type: ignore
 
