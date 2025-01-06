@@ -218,7 +218,7 @@ class RoBYOL(BaseMomentumMethod):
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-                au_loss += uniform_loss_func(torch.cat((F.normalize(Z[v1], dim=-1), F.normalize(queue, dim=-1)), dim=0))
+                au_loss += uniform_loss_func(torch.cat((F.normalize(Z[v1], dim=-1), F.normalize(queue.T, dim=-1)), dim=0))
                 au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
         # calculate std of features
