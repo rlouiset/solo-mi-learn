@@ -18,5 +18,7 @@
     prob: 0.0
   horizontal_flip:
     prob: 0.5
+  verticalal_flip: # PATH MNIST
+    prob: 0.5
   crop_size: 28
   num_crops: 2
