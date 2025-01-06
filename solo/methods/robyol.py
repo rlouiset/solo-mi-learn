@@ -76,8 +76,8 @@ class RoBYOL(BaseMomentumMethod):
 
         self.queue_size = 16384
         # create the queue
-        self.register_buffer("queue", torch.randn(self.queue_size), proj_output_dim)
-        self.queue = nn.functional.normalize(self.queue, dim=1)
+        self.register_buffer("queue", torch.randn(self.queue_size, proj_output_dim))
+        self.queue = nn.functional.normalize(self.queue, dim=-1)
         self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
 
     @staticmethod
