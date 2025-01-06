@@ -74,12 +74,6 @@ class RoBYOL(BaseMomentumMethod):
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
-        self.queue_size = 4096
-        # create the queue
-        self.register_buffer("queue", torch.randn(self.queue_size, proj_output_dim).detach())
-        self.queue = nn.functional.normalize(self.queue, dim=-1)
-        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
-
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
         """Adds method specific default values/checks for config.
@@ -157,24 +151,6 @@ class RoBYOL(BaseMomentumMethod):
         out.update({"z": z, "p": p})
         return out
 
-
-    @torch.no_grad()
-    def _dequeue_and_enqueue(self, keys: torch.Tensor):
-        """Adds new samples and removes old samples from the queue in a fifo manner.
-
-        Args:
-            keys (torch.Tensor): output features of the momentum backbone.
-        """
-
-        batch_size = keys.shape[0]
-        ptr = int(self.queue_ptr)  # type: ignore
-        assert self.queue_size % batch_size == 0  # for simplicity
-
-        # replace the keys at ptr (dequeue and enqueue)
-        self.queue[ptr : ptr + batch_size, :] = keys
-        ptr = (ptr + batch_size) % self.queue_size  # move pointer
-        self.queue_ptr[0] = ptr  # type: ignore
-
     @torch.no_grad()
     def momentum_forward(self, X: torch.Tensor) -> Dict:
         """Performs the forward pass of the momentum backbone and projector.
@@ -216,16 +192,12 @@ class RoBYOL(BaseMomentumMethod):
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-                au_loss += uniform_loss_func(torch.cat((F.normalize(Z[v1], dim=-1), F.normalize(self.queue, dim=-1)), dim=0))
+                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
                 au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
-
-        # ------- update queue -------
-        keys = Z_momentum[0]
-        self._dequeue_and_enqueue(keys.detach())
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
