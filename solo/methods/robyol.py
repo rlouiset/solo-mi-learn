@@ -211,13 +211,12 @@ class RoBYOL(BaseMomentumMethod):
         Z_momentum = out["momentum_z"]
 
         # ------- negative cosine similarity loss -------
-        queue = self.queue.clone().detach()
         neg_cos_sim = 0
         au_loss = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-                au_loss += uniform_loss_func(torch.cat((F.normalize(Z[v1], dim=-1), F.normalize(queue, dim=-1)), dim=0))
+                au_loss += uniform_loss_func(torch.cat((F.normalize(Z[v1], dim=-1), F.normalize(self.queue, dim=-1)), dim=0))
                 au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
         # calculate std of features
@@ -226,7 +225,7 @@ class RoBYOL(BaseMomentumMethod):
 
         # ------- update queue -------
         keys = Z_momentum[0]
-        self._dequeue_and_enqueue(keys)
+        self._dequeue_and_enqueue(keys.detach())
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
