@@ -155,6 +155,8 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         "cifar100": cifar_pipeline,
         "BloodMNIST": medmnist_pipeline,
         "PathMNIST": medmnist_pipeline,
+        "DermaMNIST": medmnist_pipeline,
+        "TissueMNIST": medmnist_pipeline,
         "stl10": stl_pipeline,
         "imagenet100": imagenet_pipeline,
         "imagenet": imagenet_pipeline,
