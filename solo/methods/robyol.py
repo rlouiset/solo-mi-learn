@@ -76,7 +76,7 @@ class RoBYOL(BaseMomentumMethod):
 
         self.queue_size = 16384
         # create the queue
-        self.register_buffer("queue", torch.randn(2, proj_output_dim, self.queue_size))
+        self.register_buffer("queue", torch.randn(proj_output_dim, self.queue_size))
         self.queue = nn.functional.normalize(self.queue, dim=1)
         self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
 
@@ -218,7 +218,7 @@ class RoBYOL(BaseMomentumMethod):
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-                au_loss += uniform_loss_func(torch.cat((F.normalize(Z[v1], dim=-1), F.normalize(queue[v2].T, dim=-1)), dim=0))
+                au_loss += uniform_loss_func(torch.cat((F.normalize(Z[v1], dim=-1), F.normalize(queue.T, dim=-1)), dim=0))
                 au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
         # calculate std of features
@@ -226,7 +226,7 @@ class RoBYOL(BaseMomentumMethod):
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
 
         # ------- update queue -------
-        keys = torch.stack((Z_momentum[0], Z_momentum[1]))
+        keys = Z_momentum[0]
         self._dequeue_and_enqueue(keys)
 
         metrics = {
