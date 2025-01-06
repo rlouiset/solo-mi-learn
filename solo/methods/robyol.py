@@ -226,7 +226,7 @@ class RoBYOL(BaseMomentumMethod):
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
 
         # ------- update queue -------
-        keys = torch.stack((gather(Z_momentum[0]), gather(Z_momentum[1])))
+        keys = torch.stack((Z_momentum[0], Z_momentum[1]))
         self._dequeue_and_enqueue(keys)
 
         metrics = {
