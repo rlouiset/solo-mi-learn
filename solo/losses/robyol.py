@@ -26,8 +26,9 @@ def align_loss_func(x, y, alpha=2):
 def entropy_loss_func(x, t=2):
     return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).mean().log()
 
-def uniform_loss_func(x, t=2):
-    return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).log().mean()
+def uniform_loss_func(query, queue, t=2): # (x, t=2):
+    # return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).log().mean()
+    return torch.einsum("nc,ck->nk", [query, queue]).pow(2).mul(-t).exp().mean(-1).log().mean()
 
 def robyol_loss_func(z1: torch.Tensor, z2: torch.Tensor) -> torch.Tensor:
     """Computes BYOL's loss given batch of predicted features p and projected momentum features z.
