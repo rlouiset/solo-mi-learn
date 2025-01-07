@@ -31,8 +31,8 @@ data:
 optimizer:
   name: "lars"
   batch_size: 512
-  lr: 1.0
-  classifier_lr: 0.1
+  lr: 0.2
+  classifier_lr: 0.02
   weight_decay: 1e-5
   kwargs:
     clip_lr: True
