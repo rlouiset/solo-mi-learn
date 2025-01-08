@@ -74,11 +74,12 @@ class RoBYOL(BaseMomentumMethod):
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
-        """# create the queue
+        # create the queue
+        self.temperature = 0.2
         self.queue_size = 32768
         self.register_buffer("queue", torch.randn(2, proj_output_dim, self.queue_size))
         self.queue = nn.functional.normalize(self.queue, dim=1)
-        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))"""
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -214,18 +215,19 @@ class RoBYOL(BaseMomentumMethod):
 
         # ------- negative cosine similarity loss -------
         # symmetric
-        # queue = self.queue.clone().detach()
+        queue = self.queue.clone().detach()
         neg_cos_sim = 0
         au_loss = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1)) # uniform_loss_func(F.normalize(Z[v1], dim=-1), torch.cat((F.normalize(Z[v1], dim=-1).T, F.normalize(queue[v2], dim=-1)), dim=1))
-                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
+                au_loss = mocov2plus_loss_func(Z[v1], Z_momentum[v2], queue[v2], self.temperature)
+                # au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1)) # uniform_loss_func(F.normalize(Z[v1], dim=-1), torch.cat((F.normalize(Z[v1], dim=-1).T, F.normalize(queue[v2], dim=-1)), dim=1))
+                # au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
-        """# ------- update queue -------
+        # ------- update queue -------
         keys = torch.stack((Z[0], Z[1])).detach()
-        self._dequeue_and_enqueue(keys)"""
+        self._dequeue_and_enqueue(keys)
 
         # calculate std of features
         with torch.no_grad():
