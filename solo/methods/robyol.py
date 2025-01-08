@@ -226,7 +226,7 @@ class RoBYOL(BaseMomentumMethod):
                 # au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
         # ------- update queue -------
-        keys = torch.stack((Z[0], Z[1])).detach()
+        keys = torch.stack((Z_momentum[0], Z_momentum[1])).detach()
         self._dequeue_and_enqueue(keys)
 
         # calculate std of features
