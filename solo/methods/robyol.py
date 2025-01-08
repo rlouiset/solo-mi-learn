@@ -28,7 +28,7 @@ from solo.losses.byol import byol_loss_func
 from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
-
+from solo.losses.mocov2plus import mocov2plus_loss_func
 
 class RoBYOL(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
