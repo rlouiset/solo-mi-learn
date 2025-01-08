@@ -217,12 +217,6 @@ def build_transform_pipeline(dataset, cfg):
     )
 
     augmentations = []
-    if cfg.degree_rotation > 0:
-        augmentations.append(
-            transforms.RandomRotation(
-                cfg.degree_rotation,
-            ),
-        )
 
     if cfg.rrc.enabled:
         augmentations.append(
