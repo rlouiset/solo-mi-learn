@@ -52,7 +52,7 @@ class RoBYOL(BaseMomentumMethod):
         # projector
         self.projector = nn.Sequential(
             nn.Linear(self.features_dim, proj_hidden_dim),
-            nn.BatchNorm1d(proj_hidden_dim),
+            # nn.BatchNorm1d(proj_hidden_dim),
             nn.ReLU(),
             nn.Linear(proj_hidden_dim, proj_output_dim),
         )
@@ -60,7 +60,7 @@ class RoBYOL(BaseMomentumMethod):
         # momentum projector
         self.momentum_projector = nn.Sequential(
             nn.Linear(self.features_dim, proj_hidden_dim),
-            nn.BatchNorm1d(proj_hidden_dim),
+            # nn.BatchNorm1d(proj_hidden_dim),
             nn.ReLU(),
             nn.Linear(proj_hidden_dim, proj_output_dim),
         )
@@ -69,7 +69,7 @@ class RoBYOL(BaseMomentumMethod):
         # predictor
         self.predictor = nn.Sequential(
             nn.Linear(proj_output_dim, pred_hidden_dim),
-            nn.BatchNorm1d(pred_hidden_dim),
+            # nn.BatchNorm1d(pred_hidden_dim),
             nn.ReLU(),
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
