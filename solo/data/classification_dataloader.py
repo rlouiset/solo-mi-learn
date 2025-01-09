@@ -111,6 +111,25 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         ),
     }
 
+    medmnist_pipeline = {
+        "T_train": transforms.Compose(
+            [
+                transforms.RandomResizedCrop(28, scale=(0.6, 1)),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)], p=0.8),
+                transforms.RandomGrayscale(p=0.2),
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4823, 0.4466), (0.247, 0.243, 0.261)),
+            ]
+        ),
+        "T_val": transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4823, 0.4466), (0.247, 0.243, 0.261)),
+            ]
+        ),
+    }
+
     stl_pipeline = {
         "T_train": transforms.Compose(
             [
@@ -155,7 +174,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         "cifar100": cifar_pipeline,
         "BloodMNIST": medmnist_pipeline,
         "PathMNIST": medmnist_pipeline,
-        "DermaMNIST": medmnist_pipeline,
+        "DermaMNIST": dermamnist_pipeline,
         "TissueMNIST": medmnist_pipeline,
         "stl10": stl_pipeline,
         "imagenet100": imagenet_pipeline,

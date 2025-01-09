@@ -2,7 +2,7 @@
     enabled: True
     crop_min_scale: 0.6
     crop_max_scale: 1.0
-  degree_rotation: 90
+  degree_rotation: 45
   color_jitter:
     prob: 0.8
     brightness: 0.4
