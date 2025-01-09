@@ -111,7 +111,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         ),
     }
 
-    medmnist_pipeline = {
+    dermamnist_pipeline = {
         "T_train": transforms.Compose(
             [
                 transforms.RandomResizedCrop(28, scale=(0.6, 1)),
