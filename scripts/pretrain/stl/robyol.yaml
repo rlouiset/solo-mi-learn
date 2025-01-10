@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "mobyol-0.0001-align-unif-stl"
+name: "robyol-0.0001-align-unif-stl"
 method: "robyol"
 backbone:
   name: "resnet18"
@@ -49,7 +49,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 100
+max_epochs: 200
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
