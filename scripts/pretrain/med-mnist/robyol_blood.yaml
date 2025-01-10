@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "mobyol_no-bs-0.1-tau=0.99-align-unif-path"
+name: "mobyol_dec1-align-unif-path"
 method: "robyol"
 backbone:
   name: "resnet18"
@@ -19,10 +19,10 @@ method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
   pred_hidden_dim: 4096
-  au_scale_loss: 0.1
+  au_scale_loss: 1
 momentum:
   base_tau: 0.99
-  final_tau: 0.99
+  final_tau: 0.999
 data:
   dataset: PathMNIST
   train_path: "./datasets"

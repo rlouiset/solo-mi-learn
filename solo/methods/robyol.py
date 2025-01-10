@@ -28,7 +28,6 @@ from solo.losses.byol import byol_loss_func
 from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
-from solo.losses.mocov2plus import mocov2plus_loss_func
 
 class RoBYOL(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
@@ -52,7 +51,7 @@ class RoBYOL(BaseMomentumMethod):
         # projector
         self.projector = nn.Sequential(
             nn.Linear(self.features_dim, proj_hidden_dim),
-            # nn.BatchNorm1d(proj_hidden_dim),
+            nn.BatchNorm1d(proj_hidden_dim),
             nn.ReLU(),
             nn.Linear(proj_hidden_dim, proj_output_dim),
         )
@@ -60,7 +59,7 @@ class RoBYOL(BaseMomentumMethod):
         # momentum projector
         self.momentum_projector = nn.Sequential(
             nn.Linear(self.features_dim, proj_hidden_dim),
-            # nn.BatchNorm1d(proj_hidden_dim),
+            nn.BatchNorm1d(proj_hidden_dim),
             nn.ReLU(),
             nn.Linear(proj_hidden_dim, proj_output_dim),
         )
@@ -69,17 +68,10 @@ class RoBYOL(BaseMomentumMethod):
         # predictor
         self.predictor = nn.Sequential(
             nn.Linear(proj_output_dim, pred_hidden_dim),
-            # nn.BatchNorm1d(pred_hidden_dim),
+            nn.BatchNorm1d(pred_hidden_dim),
             nn.ReLU(),
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
-
-        # create the queue
-        self.temperature = 0.2
-        self.queue_size = 32768
-        self.register_buffer("queue", torch.randn(2, proj_output_dim, self.queue_size))
-        self.queue = nn.functional.normalize(self.queue, dim=1)
-        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -113,26 +105,6 @@ class RoBYOL(BaseMomentumMethod):
             {"name": "predictor", "params": self.predictor.parameters()},
         ]
         return super().learnable_params + extra_learnable_params
-
-
-    @torch.no_grad()
-    def _dequeue_and_enqueue(self, keys: torch.Tensor):
-        """Adds new samples and removes old samples from the queue in a fifo manner.
-
-        Args:
-            keys (torch.Tensor): output features of the momentum backbone.
-        """
-
-        batch_size = keys.shape[1]
-        ptr = int(self.queue_ptr)  # type: ignore
-        assert self.queue_size % batch_size == 0  # for simplicity
-
-        # replace the keys at ptr (dequeue and enqueue)
-        keys = keys.permute(0, 2, 1)
-        self.queue[:, :, ptr : ptr + batch_size] = keys
-        ptr = (ptr + batch_size) % self.queue_size  # move pointer
-        self.queue_ptr[0] = ptr  # type: ignore
-
 
     @property
     def momentum_pairs(self) -> List[Tuple[Any, Any]]:
@@ -214,20 +186,13 @@ class RoBYOL(BaseMomentumMethod):
         Z_momentum = out["momentum_z"]
 
         # ------- negative cosine similarity loss -------
-        # symmetric
-        queue = self.queue.clone().detach()
         neg_cos_sim = 0
         au_loss = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-                au_loss += mocov2plus_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z_momentum[v2], dim=-1), queue[v2], self.temperature)
-                # au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1)) # uniform_loss_func(F.normalize(Z[v1], dim=-1), torch.cat((F.normalize(Z[v1], dim=-1).T, F.normalize(queue[v2], dim=-1)), dim=1))
-                # au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
-
-        # ------- update queue -------
-        keys = torch.stack(( F.normalize(Z_momentum[0], dim=-1),  F.normalize(Z_momentum[1], dim=-1))).detach()
-        self._dequeue_and_enqueue(keys)
+                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1)) # uniform_loss_func(F.normalize(Z[v1], dim=-1), torch.cat((F.normalize(Z[v1], dim=-1).T, F.normalize(queue[v2], dim=-1)), dim=1))
+                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
         # calculate std of features
         with torch.no_grad():
@@ -239,4 +204,4 @@ class RoBYOL(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss
+        return neg_cos_sim + self.au_scale_loss * ((self.max_epochs-self.current_epoch) / self.max_epochs) * au_loss + class_loss
