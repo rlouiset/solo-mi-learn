@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --job-name ssl_bs_512_STL10
-#SBATCH --time=01-23:59:00
+#SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 50G
 #SBATCH --cpus-per-task=8
