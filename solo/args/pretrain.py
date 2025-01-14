@@ -23,6 +23,10 @@ else:
 _N_CLASSES_PER_DATASET = {
     "cifar10": 10,
     "cifar100": 100,
+    "BloodMNIST": 8,
+    "PathMNIST": 9,
+    "DermaMNIST": 7,
+    "TissueMNIST": 8,
     "stl10": 10,
     "imagenet": 1000,
     "imagenet100": 100,
@@ -31,6 +35,10 @@ _N_CLASSES_PER_DATASET = {
 _SUPPORTED_DATASETS = [
     "cifar10",
     "cifar100",
+    "BloodMNIST",
+    "PathMNIST",
+    "DermaMNIST",
+    "TissueMNIST",
     "stl10",
     "imagenet",
     "imagenet100",

@@ -11,20 +11,19 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.0001-align-unif-cifar10" # change here for cifar100
-method: "robyol"
+name: "byol-stl"
+method: "byol"
 backbone:
   name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
   pred_hidden_dim: 4096
-  au_scale_loss: 0.0001
 momentum:
   base_tau: 0.99
-  final_tau: 1
+  final_tau: 1.0
 data:
-  dataset: cifar10 # change here for cifar100
+  dataset: stl10
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
@@ -49,7 +48,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 1000
+max_epochs: 200
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"

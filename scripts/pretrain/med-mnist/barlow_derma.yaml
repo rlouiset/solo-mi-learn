@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: asymmetric.yaml
+  - augmentations: symmetric_derma.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,20 +11,16 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.0001-align-unif-cifar10" # change here for cifar100
-method: "robyol"
+name: "barlow_twins-derma"
+method: "barlow_twins"
 backbone:
   name: "resnet18"
 method_kwargs:
-  proj_hidden_dim: 4096
-  proj_output_dim: 256
-  pred_hidden_dim: 4096
-  au_scale_loss: 0.0001
-momentum:
-  base_tau: 0.99
-  final_tau: 1
+  proj_hidden_dim: 2048
+  proj_output_dim: 2048
+  scale_loss: 0.1
 data:
-  dataset: cifar10 # change here for cifar100
+  dataset: DermaMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
@@ -32,9 +28,9 @@ data:
 optimizer:
   name: "lars"
   batch_size: 512
-  lr: 2.0
-  classifier_lr: 0.2
-  weight_decay: 1e-5
+  lr: 0.3
+  classifier_lr: 0.1
+  weight_decay: 1e-4
   kwargs:
     clip_lr: True
     eta: 0.02
@@ -49,7 +45,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 1000
+max_epochs: 200
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"

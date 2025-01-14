@@ -30,6 +30,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Dataset
 from torchvision import transforms
 from torchvision.datasets import STL10, ImageFolder
+import medmnist
 
 try:
     from solo.data.h5_dataset import H5Dataset
@@ -216,6 +217,7 @@ def build_transform_pipeline(dataset, cfg):
     )
 
     augmentations = []
+
     if cfg.rrc.enabled:
         augmentations.append(
             transforms.RandomResizedCrop(
@@ -318,11 +320,21 @@ def prepare_datasets(
         sandbox_folder = Path(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
         train_data_path = sandbox_folder / "datasets"
 
+
     if dataset in ["cifar10", "cifar100"]:
         DatasetClass = vars(torchvision.datasets)[dataset.upper()]
         train_dataset = dataset_with_index(DatasetClass)(
             train_data_path,
             train=True,
+            download=download,
+            transform=transform,
+        )
+
+    elif dataset in ["BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST"]:
+        DatasetClass = vars(medmnist)[dataset]
+        train_dataset = dataset_with_index(DatasetClass)(
+            root=train_data_path,
+            split="train",
             download=download,
             transform=transform,
         )
