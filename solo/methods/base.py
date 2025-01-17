@@ -837,17 +837,17 @@ class BaseMomentumMethod(BaseMethod):
         """
 
         if self.trainer.global_step > self.last_step + 1: # NORMALLY THERE IS NO +1
-                # update momentum backbone and projector
-                momentum_pairs = self.momentum_pairs
-                for mp in momentum_pairs:
-                    self.momentum_updater.update(*mp)
-                # log tau momentum
-                self.log("tau", self.momentum_updater.cur_tau)
-                # update tau
-                self.momentum_updater.update_tau(
-                    cur_step=self.trainer.global_step,
-                    max_steps=self.trainer.estimated_stepping_batches,
-                )
+            # update momentum backbone and projector
+            momentum_pairs = self.momentum_pairs
+            for mp in momentum_pairs:
+                self.momentum_updater.update(*mp)
+            # log tau momentum
+            self.log("tau", self.momentum_updater.cur_tau)
+            # update tau
+            self.momentum_updater.update_tau(
+                cur_step=self.trainer.global_step,
+                max_steps=self.trainer.estimated_stepping_batches,
+            )
             self.last_step = self.trainer.global_step
 
     def validation_step(
