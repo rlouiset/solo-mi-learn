@@ -71,6 +71,9 @@ class BYOL3Steps(BaseMomentumMethod):
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
+        # Important: This property activates manual optimization.
+        self.automatic_optimization = False
+
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
         """Adds method specific default values/checks for config.
@@ -181,6 +184,21 @@ class BYOL3Steps(BaseMomentumMethod):
         Returns:
             torch.Tensor: total loss composed of BYOL and classification loss.
         """
+        backbone_opt, pred_opt = self.optimizers()
+
+        out = super().training_step(batch, batch_idx)
+        P = out["p"]
+        Z_momentum = out["momentum_z"]
+
+        # ------- negative cosine similarity loss -------
+        neg_cos_sim = 0
+        for v1 in range(self.num_large_crops):
+            for v2 in np.delete(range(self.num_crops), v1):
+                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+
+        pred_opt.zero_grad()
+        self.manual_backward(neg_cos_sim)
+        pred_opt.step()
 
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
@@ -194,6 +212,10 @@ class BYOL3Steps(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
 
+        backbone_opt.zero_grad()
+        self.manual_backward(neg_cos_sim + class_loss)
+        backbone_opt.step()
+
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
@@ -203,8 +225,3 @@ class BYOL3Steps(BaseMomentumMethod):
             "train_z_std": z_std,
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
-
-        if optimizer_idx == 0:
-            return neg_cos_sim + class_loss
-        else:
-            return neg_cos_sim
