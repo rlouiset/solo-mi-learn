@@ -192,7 +192,7 @@ class BYOL3Steps(BaseMomentumMethod):
         )
 
         optimizers.append(optimizer_predictor)
-        schedulers.append(optimizer_predictor)
+        schedulers.append(scheduler_predictor)
         return optimizers, schedulers
 
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
