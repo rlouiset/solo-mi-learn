@@ -44,6 +44,8 @@ class SimSiam(BaseMethod):
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
         pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
 
+        self.au_scale_loss = cfg.method_kwargs.au_scale_loss
+
         # projector
         self.projector = nn.Sequential(
             nn.Linear(self.features_dim, proj_hidden_dim, bias=False),
@@ -135,6 +137,12 @@ class SimSiam(BaseMethod):
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = simsiam_loss_func(p1, z2) / 2 + simsiam_loss_func(p2, z1) / 2
+
+        au_loss = 0
+        au_loss += uniform_loss_func(F.normalize(z1, dim=-1))
+        au_loss += uniform_loss_func(F.normalize(z2, dim=-1))
+        au_loss += 2 * align_loss_func(F.normalize(z1, dim=-1), F.normalize(z2, dim=-1))
+
 
         # calculate std of features
         z1_std = F.normalize(z1, dim=-1).std(dim=0).mean()
