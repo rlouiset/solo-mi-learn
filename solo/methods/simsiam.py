@@ -24,6 +24,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.simsiam import simsiam_loss_func
+from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMethod
 
 
