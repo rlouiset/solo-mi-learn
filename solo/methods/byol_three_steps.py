@@ -187,6 +187,25 @@ class BYOL3Steps(BaseMomentumMethod):
         backbone_opt, pred_opt = self.optimizers()
         sch = self.lr_schedulers()
 
+        out = super().training_step(batch, batch_idx)
+        class_loss = out["loss"]
+        Z = out["z"]
+        P = out["p"]
+        Z_momentum = out["momentum_z"]
+
+        # ------- negative cosine similarity loss -------
+        neg_cos_sim = 0
+        for v1 in range(self.num_large_crops):
+            for v2 in np.delete(range(self.num_crops), v1):
+                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+
+        backbone_opt.zero_grad()
+        self.manual_backward(neg_cos_sim + class_loss)
+        backbone_opt.step()
+        if self.trainer.is_last_batch:
+            sch.step()
+
+
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
@@ -210,21 +229,3 @@ class BYOL3Steps(BaseMomentumMethod):
         pred_opt.zero_grad()
         self.manual_backward(neg_cos_sim)
         pred_opt.step()
-
-        out = super().training_step(batch, batch_idx)
-        class_loss = out["loss"]
-        Z = out["z"]
-        P = out["p"]
-        Z_momentum = out["momentum_z"]
-
-        # ------- negative cosine similarity loss -------
-        neg_cos_sim = 0
-        for v1 in range(self.num_large_crops):
-            for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-
-        backbone_opt.zero_grad()
-        self.manual_backward(neg_cos_sim + class_loss)
-        backbone_opt.step()
-        if self.trainer.is_last_batch:
-            sch.step()
