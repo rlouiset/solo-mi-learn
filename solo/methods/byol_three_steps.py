@@ -27,6 +27,7 @@ import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
+from solo.utils.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 
 class BYOL3Steps(BaseMomentumMethod):
@@ -169,8 +170,29 @@ class BYOL3Steps(BaseMomentumMethod):
 
     def configure_optimizers(self):
         optimizers, schedulers = super().configure_optimizers()
-        optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), lr=1, momentum=0.9)
+        optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), self.lr, momentum=0.9)
+
+        max_warmup_steps = (
+            self.warmup_epochs * (self.trainer.estimated_stepping_batches / self.max_epochs)
+            if self.scheduler_interval == "step"
+            else self.warmup_epochs
+        )
+        max_scheduler_steps = (
+            self.trainer.estimated_stepping_batches
+            if self.scheduler_interval == "step"
+            else self.max_epochs
+        )
+
+        scheduler_predictor = LinearWarmupCosineAnnealingLR(
+            optimizer_predictor,
+            warmup_epochs=max_warmup_steps,
+            max_epochs=max_scheduler_steps,
+            warmup_start_lr=self.warmup_start_lr if self.warmup_epochs > 0 else self.lr,
+            eta_min=self.min_lr,
+        )
+
         optimizers.append(optimizer_predictor)
+        schedulers.append(optimizer_predictor)
         return optimizers, schedulers
 
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
@@ -185,7 +207,7 @@ class BYOL3Steps(BaseMomentumMethod):
             torch.Tensor: total loss composed of BYOL and classification loss.
         """
         backbone_opt, pred_opt = self.optimizers()
-        sch = self.lr_schedulers()
+        sch, sch_p = self.lr_schedulers()
 
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
@@ -202,9 +224,7 @@ class BYOL3Steps(BaseMomentumMethod):
         backbone_opt.zero_grad()
         self.manual_backward(neg_cos_sim + class_loss)
         backbone_opt.step()
-        if self.trainer.is_last_batch:
-            sch.step()
-
+        sch.step()
 
         # calculate std of features
         with torch.no_grad():
@@ -229,3 +249,4 @@ class BYOL3Steps(BaseMomentumMethod):
         pred_opt.zero_grad()
         self.manual_backward(neg_cos_sim)
         pred_opt.step()
+        sch_p.step()
