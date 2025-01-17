@@ -169,7 +169,7 @@ class BYOL3Steps(BaseMomentumMethod):
 
     def configure_optimizers(self):
         optimizers, schedulers = super().configure_optimizers()
-        optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), lr=0.2, momentum=0.9)
+        optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), lr=1, momentum=0.9)
         optimizers.append(optimizer_predictor)
         return optimizers, schedulers
 
@@ -185,20 +185,7 @@ class BYOL3Steps(BaseMomentumMethod):
             torch.Tensor: total loss composed of BYOL and classification loss.
         """
         backbone_opt, pred_opt = self.optimizers()
-
-        out = super().training_step(batch, batch_idx)
-        P = out["p"]
-        Z_momentum = out["momentum_z"]
-
-        # ------- negative cosine similarity loss -------
-        neg_cos_sim = 0
-        for v1 in range(self.num_large_crops):
-            for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
-
-        pred_opt.zero_grad()
-        self.manual_backward(neg_cos_sim)
-        pred_opt.step()
+        sch = self.lr_schedulers()
 
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
@@ -215,6 +202,7 @@ class BYOL3Steps(BaseMomentumMethod):
         backbone_opt.zero_grad()
         self.manual_backward(neg_cos_sim + class_loss)
         backbone_opt.step()
+        sch.step()
 
         # calculate std of features
         with torch.no_grad():
@@ -225,3 +213,17 @@ class BYOL3Steps(BaseMomentumMethod):
             "train_z_std": z_std,
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
+
+        out = super().training_step(batch, batch_idx)
+        P = out["p"]
+        Z_momentum = out["momentum_z"]
+
+        # ------- negative cosine similarity loss -------
+        neg_cos_sim = 0
+        for v1 in range(self.num_large_crops):
+            for v2 in np.delete(range(self.num_crops), v1):
+                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+
+        pred_opt.zero_grad()
+        self.manual_backward(neg_cos_sim)
+        pred_opt.step()
