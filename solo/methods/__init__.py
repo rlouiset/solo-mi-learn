@@ -48,6 +48,7 @@ METHODS = {
     # methods
     "barlow_twins": BarlowTwins,
     "byol": BYOL,
+    "byol_3_steps":BYOL3Steps,
     "deepclusterv2": DeepClusterV2,
     "dino": DINO,
     "mae": MAE,
