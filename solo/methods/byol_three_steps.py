@@ -165,7 +165,7 @@ class BYOL3Steps(BaseMomentumMethod):
         return out
 
     def configure_optimizers(self):
-        optimizers, schedulers = super().training_step(batch, batch_idx)
+        optimizers, schedulers = super().configure_optimizers()
         optimizer_predictor = optim.SGD(self.predictor.parameters(), lr=0.2, momentum=0.9)
         optimizers.append(optimizer_predictor)
         return optimizers, schedulers
