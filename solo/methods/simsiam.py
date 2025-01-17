@@ -144,7 +144,6 @@ class SimSiam(BaseMethod):
         au_loss += uniform_loss_func(F.normalize(z2, dim=-1))
         au_loss += 2 * align_loss_func(F.normalize(z1, dim=-1), F.normalize(z2, dim=-1))
 
-
         # calculate std of features
         z1_std = F.normalize(z1, dim=-1).std(dim=0).mean()
         z2_std = F.normalize(z2, dim=-1).std(dim=0).mean()
@@ -156,4 +155,4 @@ class SimSiam(BaseMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + class_loss
+        return neg_cos_sim + class_loss + self.au_scale_loss * au_loss
