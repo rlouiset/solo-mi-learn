@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol_0-align-unif-blood"
+name: "robyol_0-0.99tau-align-unif-blood"
 method: "robyol"
 backbone:
   name: "resnet18"
@@ -22,7 +22,7 @@ method_kwargs:
   au_scale_loss: 0.0
 momentum:
   base_tau: 0.99
-  final_tau: 0.999
+  final_tau: 0.99
 data:
   dataset: BloodMNIST
   train_path: "./datasets"
