@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-200epchs-0.0-align-unif-cifar10" # change here for cifar100
+name: "robyol-200epchs-0.001-unif-cifar100" # change here for cifar100
 method: "robyol"
 backbone:
   name: "resnet18"
@@ -19,12 +19,12 @@ method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
   pred_hidden_dim: 4096
-  au_scale_loss: 0.0
+  au_scale_loss: 0.001
 momentum:
   base_tau: 0.99
   final_tau: 1
 data:
-  dataset: cifar10 # change here for cifar100
+  dataset: cifar100 # change here for cifar100
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
