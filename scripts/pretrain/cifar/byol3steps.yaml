@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol3steps-cifar100"
+name: "byol3steps-fixed-cifar100"
 method: "byol3steps"
 backbone:
   name: "resnet18"
