@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-200epchs-0.001-unif-cifar100" # change here for cifar100
+name: "robyol-0.001-unif-cifar100" # change here for cifar100
 method: "robyol"
 backbone:
   name: "resnet18"
@@ -49,7 +49,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 200
+max_epochs: 1000
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
