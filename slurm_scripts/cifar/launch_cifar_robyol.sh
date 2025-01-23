@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name robyol_0.01-unif_CIFAR10
+#SBATCH --job-name robyol_0.001-unif_CIFAR10
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 80G
@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --partition V100
-#SBATCH --output robyol_0.01-unif_CIFAR10.txt
+#SBATCH --output robyol_0.001-unif_CIFAR10.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
