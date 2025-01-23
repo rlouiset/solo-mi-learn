@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name byol_bs_512_CIFAR100
+#SBATCH --job-name byol-mc_CIFAR100
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 80G
@@ -8,9 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --partition V100
-#SBATCH --output byol3_512_CIFAR100.txt
+#SBATCH --output byol-mc_CIFAR100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-srun python3 main_pretrain.py --config-path scripts/pretrain/cifar/ --config-name byol3steps.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/cifar/ --config-name byol.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/cifar-multicrop/ --config-name byol.yaml
