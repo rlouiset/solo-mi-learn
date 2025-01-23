@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --partition V100
-#SBATCH --output robyol_0.01-unif_CIFAR100
+#SBATCH --output robyol_0.01-unif_CIFAR100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
