@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --partition A100
-#SBATCH --output byol-mc_CIFAR10.txt
+#SBATCH --output byol-mc-lse_CIFAR10.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base

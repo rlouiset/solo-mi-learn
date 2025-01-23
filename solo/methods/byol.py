@@ -191,10 +191,10 @@ class BYOL(BaseMomentumMethod):
 
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
-            neg_cos_sim_i = 0
+            neg_cos_sim_i = []
             for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim_i += 2 - 2 * (F.normalize(P[v2], dim=-1) * F.normalize(Z_momentum[v1], dim=-1).detach()).sum(dim=1).exp()
-            neg_cos_sim_i /= self.num_crops - 1
+                neg_cos_sim_i.append(2 - 2 * (F.normalize(P[v2], dim=-1) * F.normalize(Z_momentum[v1], dim=-1).detach()).sum(dim=1).exp())
+            neg_cos_sim_i = sum(neg_cos_sim_i) / self.num_crops - 1
             neg_cos_sim += neg_cos_sim_i.log().mean()
 
         # calculate std of features
