@@ -836,7 +836,7 @@ class BaseMomentumMethod(BaseMethod):
             batch_idx (int): index of the batch.
         """
 
-        if (self.trainer.global_step) > self.last_step:
+        if (self.trainer.global_step // len(self.optimizers())) > self.last_step:
             # update momentum backbone and projector
             momentum_pairs = self.momentum_pairs
             for mp in momentum_pairs:
@@ -845,10 +845,10 @@ class BaseMomentumMethod(BaseMethod):
             self.log("tau", self.momentum_updater.cur_tau)
             # update tau
             self.momentum_updater.update_tau(
-                cur_step=self.trainer.global_step,
+                cur_step=self.trainer.global_step // len(self.optimizers()),
                 max_steps=self.trainer.estimated_stepping_batches,
             )
-        self.last_step = (self.trainer.global_step)
+        self.last_step = (self.trainer.global_step // len(self.optimizers()))
 
     def validation_step(
         self,
