@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol_1-unif-0.99tau-blood"
+name: "robyol2_1-unif-0.99tau-blood"
 method: "robyol"
 backbone:
   name: "resnet18"
