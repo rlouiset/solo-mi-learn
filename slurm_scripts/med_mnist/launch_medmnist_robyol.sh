@@ -13,6 +13,5 @@
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
 srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name robyol_path_2.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name robyol_path_3.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name robyol_path_4.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name robyol_path.yaml
 
