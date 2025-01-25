@@ -13,7 +13,6 @@
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
 srun python3 main_pretrain.py --config-path scripts/pretrain/stl/ --config-name robyol.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/stl/ --config-name robyol_2.yaml
 
 
 
