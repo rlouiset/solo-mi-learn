@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "simsiam-0.5au-blood" # change here for cifar100
+name: "simsiam-1au-path" # change here for cifar100
 method: "simsiam"
 backbone:
   name: "resnet18"
@@ -20,9 +20,9 @@ method_kwargs:
   proj_output_dim: 2048
   pred_hidden_dim: 512
   temperature: 0.2
-  au_scale_loss: 0.5
+  au_scale_loss: 1
 data:
-  dataset: BloodMNIST
+  dataset: PathMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
