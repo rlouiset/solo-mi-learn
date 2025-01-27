@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol2_5-align-unif-0.99tau-path"
+name: "robyol2_0.01-align-unif-0.99tau-blood"
 method: "robyol"
 backbone:
   name: "resnet18"
@@ -19,12 +19,12 @@ method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
   pred_hidden_dim: 4096
-  au_scale_loss: 5
+  au_scale_loss: 0.01
 momentum:
   base_tau: 0.99
   final_tau: 0.99
 data:
-  dataset: PathMNIST
+  dataset: BloodMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
