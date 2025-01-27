@@ -11,14 +11,14 @@ hydra:
   run:
     dir: .
 
-name: "rosiam-dim256-0.001au-cifar10" # change here for cifar100
+name: "rosiam-0.001au-cifar10" # change here for cifar100
 method: "simsiam"
 backbone:
   name: "resnet18"
 method_kwargs:
-  proj_hidden_dim: 4096
-  proj_output_dim: 256
-  pred_hidden_dim: 4096
+  proj_hidden_dim: 2048
+  proj_output_dim: 2048
+  pred_hidden_dim: 512
   temperature: 0.2
   au_scale_loss: 0.001
 data:
