@@ -12,5 +12,5 @@
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-srun python3 main_pretrain.py --config-path scripts/pretrain/stl/ --config-name nnbyol.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/stl/ --config-name nnrobyol.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/cifar/ --config-name nnbyol.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/cifar/ --config-name nnrobyol.yaml
