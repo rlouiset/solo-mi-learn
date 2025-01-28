@@ -204,10 +204,10 @@ class BYOL(BaseMomentumMethod):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
 
         # Feature dimension task
-        p1_norm_feat = torch.nn.functional.normalize(momentum_z1, dim=0)
-        p2_norm_feat = torch.nn.functional.normalize(momentum_z2, dim=0)
-        z1_norm_feat = torch.nn.functional.normalize(z1, dim=0)
-        z2_norm_feat = torch.nn.functional.normalize(z2, dim=0)
+        p1_norm_feat = torch.nn.functional.normalize(Z_momentum[0], dim=0)
+        p2_norm_feat = torch.nn.functional.normalize(Z_momentum[1], dim=0)
+        z1_norm_feat = torch.nn.functional.normalize(Z[0], dim=0)
+        z2_norm_feat = torch.nn.functional.normalize(Z[1], dim=0)
 
         corr_matrix_1_feat = p1_norm_feat.T @ z2_norm_feat
         corr_matrix_2_feat = p2_norm_feat.T @ z1_norm_feat
