@@ -234,7 +234,8 @@ class NNBYOL(BaseMomentumMethod):
         _, nn2_momentum = self.find_nn(z2_momentum)
 
         # ------- negative cosine similarity loss -------
-        neg_cos_sim = byol_loss_func(p1, nn2_momentum) + byol_loss_func(p2, nn1_momentum)
+        neg_cos_sim = ((self.max_epochs - self.current_epoch) / self.max_epochs) * (byol_loss_func(p1, z2_momentum) + byol_loss_func(p2, z1_momentum)) + \
+                      (self.current_epoch / self.max_epochs) * (byol_loss_func(p1, nn2_momentum) + byol_loss_func(p2, nn1_momentum))
         au_loss = 0
         au_loss += uniform_loss_func(F.normalize(z1, dim=-1))
         au_loss += uniform_loss_func(F.normalize(z2, dim=-1))
