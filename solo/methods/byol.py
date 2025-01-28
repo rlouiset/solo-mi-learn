@@ -131,6 +131,20 @@ class BYOL(BaseMomentumMethod):
         out.update({"z": z, "p": p})
         return out
 
+    def off_diagonal(self, x):
+        """Extracts off-diagonal elements.
+
+        Args:
+            X (torch.Tensor): batch of images in tensor format.
+
+        Returns:
+            torch.Tensor:
+                flattened off-diagonal elements.
+        """
+        n, m = x.shape
+        assert n == m
+        return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
+
     def multicrop_forward(self, X: torch.tensor) -> Dict[str, Any]:
         """Performs the forward pass for the multicrop views.
 
@@ -189,14 +203,29 @@ class BYOL(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
 
-        """neg_cos_sim = 0
-        for v1 in range(self.num_large_crops):
-            neg_cos_sim_i = []
-            for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim_i.append((- 2 + 2 * (F.normalize(P[v2], dim=-1) * F.normalize(Z_momentum[v1].detach(), dim=-1)).sum(dim=-1)).exp())
-            neg_cos_sim_i = sum(neg_cos_sim_i) / (self.num_crops - 1)
-            neg_cos_sim += neg_cos_sim_i.log().mean()
-        neg_cos_sim = - neg_cos_sim"""
+        # Feature dimension task
+        p1_norm_feat = torch.nn.functional.normalize(momentum_z1, dim=0)
+        p2_norm_feat = torch.nn.functional.normalize(momentum_z2, dim=0)
+        z1_norm_feat = torch.nn.functional.normalize(z1, dim=0)
+        z2_norm_feat = torch.nn.functional.normalize(z2, dim=0)
+
+        corr_matrix_1_feat = p1_norm_feat.T @ z2_norm_feat
+        corr_matrix_2_feat = p2_norm_feat.T @ z1_norm_feat
+
+        on_diag_feat = (
+            (
+                torch.diagonal(corr_matrix_1_feat).add(-1).pow(2).mean()
+                + torch.diagonal(corr_matrix_2_feat).add(-1).pow(2).mean()
+            )
+            * 0.5
+        ).sqrt()
+        off_diag_feat = (
+            (
+                self.off_diagonal(corr_matrix_1_feat).pow(2).mean()
+                + self.off_diagonal(corr_matrix_2_feat).pow(2).mean()
+            )
+            * 0.5
+        ).sqrt()
 
         # calculate std of features
         with torch.no_grad():
@@ -208,4 +237,4 @@ class BYOL(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + class_loss
+        return neg_cos_sim + class_loss + (off_diag_feat + on_diag_feat) * 5

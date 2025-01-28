@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-tau=0.99-cifar100" # change here for cifar100
+name: "byol-covar-tau=0.99-cifar10" # change here for cifar100
 method: "byol"
 backbone:
   name: "resnet18"
@@ -21,9 +21,9 @@ method_kwargs:
   pred_hidden_dim: 4096
 momentum:
   base_tau: 0.99
-  final_tau: 0.99 # 1.0
+  final_tau: 1.0
 data:
-  dataset: cifar100 # change here for cifar100
+  dataset: cifar10 # change here for cifar100
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
