@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.0001-align-unif-0.001-covar-cifar10" # change here for cifar100
+name: "robyol-0.0001-align-unif-0.01-covar-cifar10" # change here for cifar100
 method: "robyol"
 backbone:
   name: "resnet18"
