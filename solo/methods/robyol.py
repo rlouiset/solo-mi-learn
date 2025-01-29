@@ -253,4 +253,4 @@ class RoBYOL(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss  + (off_diag_feat + on_diag_feat) * 5
+        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss  + (off_diag_feat + on_diag_feat) * 0.001 # * 5
