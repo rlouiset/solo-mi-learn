@@ -202,36 +202,17 @@ class RoBYOL(BaseMomentumMethod):
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
-        au_loss = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+
+
+        # ------- negative cosine similarity loss -------
+        au_loss = 0
+        for v1 in range(self.num_large_crops):
+            for v2 in np.delete(range(self.num_large_crops), v1):
                 au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
-                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1)) / (self.num_crops - 1)
-
-        # Feature dimension task
-        p1_norm_feat = torch.nn.functional.normalize(Z_momentum[0], dim=0)
-        p2_norm_feat = torch.nn.functional.normalize(Z_momentum[1], dim=0)
-        z1_norm_feat = torch.nn.functional.normalize(Z[0], dim=0)
-        z2_norm_feat = torch.nn.functional.normalize(Z[1], dim=0)
-
-        corr_matrix_1_feat = p1_norm_feat.T @ z2_norm_feat
-        corr_matrix_2_feat = p2_norm_feat.T @ z1_norm_feat
-
-        on_diag_feat = (
-            (
-                torch.diagonal(corr_matrix_1_feat).add(-1).pow(2).mean()
-                + torch.diagonal(corr_matrix_2_feat).add(-1).pow(2).mean()
-            )
-            * 0.5
-        ).sqrt()
-        off_diag_feat = (
-            (
-                self.off_diagonal(corr_matrix_1_feat).pow(2).mean()
-                + self.off_diagonal(corr_matrix_2_feat).pow(2).mean()
-            )
-            * 0.5
-        ).sqrt()
+                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
         # calculate std of features
         with torch.no_grad():
@@ -253,4 +234,4 @@ class RoBYOL(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss  + (off_diag_feat + on_diag_feat) * 0.01 # * 5
+        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss
