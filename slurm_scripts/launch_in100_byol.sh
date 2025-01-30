@@ -12,5 +12,4 @@
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-conda activate solo_learn
 srun python3 main_pretrain.py --config-path scripts/pretrain/imagenet-100/ --config-name byol.yaml
