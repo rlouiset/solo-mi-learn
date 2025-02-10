@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-stl"
+name: "byol-mc_stl"
 method: "byol"
 backbone:
   name: "resnet18"
