@@ -65,5 +65,5 @@
   horizontal_flip:
     prob: 0.5
   crop_size: 48
-  num_crops: 6
+  num_crops: 4
 
