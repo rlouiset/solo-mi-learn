@@ -1,4 +1,4 @@
 from datasets import load_dataset
 
 # If the dataset is gated/private, make sure you have run huggingface-cli login
-ds = load_dataset("clane9/imagenet-100")
+ds = load_dataset("clane9/imagenet-100", data_dir="datasets/in100")
