@@ -31,13 +31,9 @@ data:
 optimizer:
   name: "adamw"
   batch_size: 512
-  lr: 0.5 # 1.0
-  classifier_lr: 0.05 # 0.1
+  lr: 0.5 # 2.0
+  classifier_lr: 0.05 # 0.2
   weight_decay: 1e-5
-  kwargs:
-    clip_lr: True
-    eta: 0.02
-    exclude_bias_n_norm: True
 scheduler:
   name: "warmup_cosine"
 checkpoint:
