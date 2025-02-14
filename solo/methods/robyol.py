@@ -209,7 +209,7 @@ class RoBYOL(BaseMomentumMethod):
         # ------- negative cosine similarity loss -------
         au_loss = 0
         for v1 in range(self.num_large_crops):
-            for v2 in np.delete(range(self.num_large_crops), v1):
+            for v2 in np.delete(range(self.num_crops), v1):
                 au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
                 au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
