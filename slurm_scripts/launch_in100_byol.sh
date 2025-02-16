@@ -2,11 +2,11 @@
 
 #SBATCH --job-name byol_bs_512_IN100
 #SBATCH --time=00-23:59:00
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 #SBATCH --mem 100G
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:2
-#SBATCH --gpus-per-node=1
+#SBATCH --gpus-per-node=2
 #SBATCH --partition A100
 #SBATCH --output byol_bs_512_IN100.txt
 
