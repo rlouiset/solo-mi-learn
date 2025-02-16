@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
-#SBATCH --partition A100
+#SBATCH --partition V100
 #SBATCH --output robyol_0.001-align-unif_CIFAR10et100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
