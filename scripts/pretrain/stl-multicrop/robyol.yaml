@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-mc_stl"
+name: "robyol-mc2_stl"
 method: "robyol"
 backbone:
   name: "resnet18"
