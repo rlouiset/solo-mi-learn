@@ -26,7 +26,7 @@ data:
   dataset: imagenet100
   train_path: "/home/ids/rareme/imagenet-100/train"
   val_path: "/home/ids/rareme/imagenet-100/val"
-  format: "dali"
+  format: "h5"
   num_workers: 4
 optimizer:
   name: "lars"

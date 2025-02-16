@@ -11,5 +11,5 @@
 #SBATCH --output byol_bs_512_IN100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
-source activate base
+source activate py39
 srun python3 main_pretrain.py --config-path scripts/pretrain/imagenet-100/ --config-name byol.yaml

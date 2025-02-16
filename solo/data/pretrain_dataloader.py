@@ -350,6 +350,7 @@ def prepare_datasets(
     elif dataset in ["imagenet", "imagenet100"]:
         if data_format == "h5":
             assert _h5_available
+            print(train_data_path)
             train_dataset = dataset_with_index(H5Dataset)(dataset, train_data_path, transform)
         else:
             train_dataset = dataset_with_index(ImageFolder)(train_data_path, transform)
