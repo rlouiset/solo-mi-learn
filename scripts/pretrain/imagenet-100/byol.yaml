@@ -30,9 +30,9 @@ data:
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 512
-  lr: 2
-  classifier_lr: 0.4
+  batch_size: 256
+  lr: 1
+  classifier_lr: 0.2
   weight_decay: 1e-6
   kwargs:
     clip_lr: True
