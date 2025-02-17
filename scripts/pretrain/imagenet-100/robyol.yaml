@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-in100"
+name: "robyol-0.01au-in100"
 method: "robyol"
 backbone:
   name: "resnet50"
