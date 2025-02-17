@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: symmetric_weak.yaml
+  - augmentations: asymmetric.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "mocov2plus-imagenet100"
+name: "mocov2plus-in100"
 method: "mocov2plus"
 backbone:
   name: "resnet18"
@@ -25,15 +25,15 @@ momentum:
   final_tau: 0.999
 data:
   dataset: imagenet100
-  train_path: "./datasets/imagenet-100/train"
-  val_path: "./datasets/imagenet-100/val"
+  train_path: "/home/ids/rareme/imagenet-100/train"
+  val_path: "/home/ids/rareme/imagenet-100/val"
   format: "dali"
   num_workers: 4
 optimizer:
   name: "sgd"
-  batch_size: 128
-  lr: 0.3
-  classifier_lr: 0.3
+  batch_size: 256
+  lr: 0.6
+  classifier_lr: 0.6
   weight_decay: 1e-4
 scheduler:
   name: "warmup_cosine"
