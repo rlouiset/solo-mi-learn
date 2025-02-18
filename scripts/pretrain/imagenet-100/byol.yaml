@@ -11,10 +11,10 @@ hydra:
   run:
     dir: .
 
-name: "byol-in100"
+name: "byol-bs512-finaltau0.99-in100"
 method: "byol"
 backbone:
-  name: "resnet18"
+  name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
@@ -31,8 +31,8 @@ data:
 optimizer:
   name: "lars"
   batch_size: 512
-  lr: 1
-  classifier_lr: 0.2
+  lr: 2
+  classifier_lr: 0.4
   weight_decay: 1e-6
   kwargs:
     clip_lr: True
