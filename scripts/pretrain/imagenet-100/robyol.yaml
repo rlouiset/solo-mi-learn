@@ -11,18 +11,18 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.01-align-unif-finaltau-0.999-in100"
+name: "robyol-0.01-align-unif-pred-hidden_dim-4096-lr0.5-in100"
 method: "robyol"
 backbone:
   name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
-  pred_hidden_dim: 8192
+  pred_hidden_dim: 4096 # 8192
   au_scale_loss: 0.01
 momentum:
   base_tau: 0.99
-  final_tau: 0.999
+  final_tau: 1
 data:
   dataset: imagenet100
   train_path: "/home/ids/rareme/imagenet-100/train"
@@ -32,7 +32,7 @@ data:
 optimizer:
   name: "lars"
   batch_size: 256
-  lr: 1
+  lr: 0.5 # 1
   classifier_lr: 0.2
   weight_decay: 1e-5 # 6
   kwargs:
