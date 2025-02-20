@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.01-align-unif-wd-1e-5-in100"
+name: "robyol-0.01-align-unif-finaltau-0.999-in100"
 method: "robyol"
 backbone:
   name: "resnet50"
@@ -22,7 +22,7 @@ method_kwargs:
   au_scale_loss: 0.01
 momentum:
   base_tau: 0.99
-  final_tau: 1.0
+  final_tau: 0.999
 data:
   dataset: imagenet100
   train_path: "/home/ids/rareme/imagenet-100/train"
