@@ -5,11 +5,11 @@
 #SBATCH --nodes=1
 #SBATCH --mem 100G
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:3
-#SBATCH --gpus-per-node=3
+#SBATCH --gres=gpu:2
+#SBATCH --gpus-per-node=2
 #SBATCH --partition A100
 #SBATCH --output byol_bs_256_IN100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-srun python3 main_pretrain.py --config-path scripts/pretrain/imagenet-100/ --config-name byol.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/imagenet-100/ --config-name simclr.yaml
