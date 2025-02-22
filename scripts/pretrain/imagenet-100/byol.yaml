@@ -14,11 +14,11 @@ hydra:
 name: "byol-in100"
 method: "byol"
 backbone:
-  name: "resnet18"
+  name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
-  pred_hidden_dim: 8192
+  pred_hidden_dim: 4096
 momentum:
   base_tau: 0.99
   final_tau: 1
