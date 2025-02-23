@@ -59,8 +59,8 @@ augmentations:
 optimizer:
   name: "lars"
   batch_size: 256
-  lr: 0.6
-  classifier_lr: 0.2
+  lr: 0.3
+  classifier_lr: 0.1
   weight_decay: 1e-4
   kwargs:
     clip_lr: True
