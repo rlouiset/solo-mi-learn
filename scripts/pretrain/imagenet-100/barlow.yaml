@@ -14,15 +14,15 @@ hydra:
 name: "barlow_twins-imagenet100"
 method: "barlow_twins"
 backbone:
-  name: "resnet18"
+  name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 2048
   scale_loss: 0.1
 data:
   dataset: imagenet100
-  train_path: "./datasets/imagenet-100/train"
-  val_path: "./datasets/imagenet-100/val"
+  train_path: "/home/ids/rareme/imagenet-100/train"
+  val_path: "/home/ids/rareme/imagenet-100/val"
   format: "dali"
   num_workers: 4
 optimizer:
