@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "vicreg-imagenet100"
+name: "vicreg-2xlr-imagenet100"
 method: "vicreg"
 backbone:
   name: "resnet50"
@@ -59,8 +59,8 @@ augmentations:
 optimizer:
   name: "lars"
   batch_size: 256
-  lr: 0.3
-  classifier_lr: 0.1
+  lr: 0.5
+  classifier_lr: 0.2
   weight_decay: 1e-4
   kwargs:
     clip_lr: True
