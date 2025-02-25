@@ -95,7 +95,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
     medmnist_pipeline = {
         "T_train": transforms.Compose(
             [
-                transforms.RandomResizedCrop(28, scale=(0.2, 1)),
+                transforms.RandomResizedCrop(128, scale=(0.2, 1)),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)], p=0.8),
                 transforms.RandomGrayscale(p=0.2),
@@ -254,6 +254,7 @@ def prepare_datasets(
             split="train",
             download=True,
             transform=T_train,
+            size=128
         )
         DatasetClass = vars(medmnist)[dataset]
         val_dataset = DatasetClass(
@@ -261,6 +262,7 @@ def prepare_datasets(
             split="test",
             download=download,
             transform=T_val,
+            size=128
         )
 
     elif dataset == "stl10":
