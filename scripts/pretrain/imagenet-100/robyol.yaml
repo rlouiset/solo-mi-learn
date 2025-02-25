@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: vicreg.yaml
+  - augmentations: asymmetric.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,14 +11,14 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.01-align-unif-pred-hidden-dim-4096-vicreg-da-in100"
+name: "robyol-0.01-align-unif-pred-hidden-dim-2048-in100"
 method: "robyol"
 backbone:
   name: "resnet50"
 method_kwargs:
-  proj_hidden_dim: 4096
+  proj_hidden_dim: 2048 # 4096
   proj_output_dim: 256
-  pred_hidden_dim: 4096
+  pred_hidden_dim: 2048 # 4096
   au_scale_loss: 0.01
 momentum:
   base_tau: 0.99
