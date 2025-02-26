@@ -54,4 +54,5 @@ devices: [0, 1] #SBATCH --gres=gpu:2
 sync_batchnorm: True #SBATCH --gpus-per-node=2
 accelerator: "gpu"
 strategy: "ddp"
+num_nodes: 2
 precision: 16-mixed
