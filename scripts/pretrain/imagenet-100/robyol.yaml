@@ -11,14 +11,14 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.01-align-unif-pred-hidden-dim-2048-in100"
+name: "robyol-0.01-align-unif-bs512-in100"
 method: "robyol"
 backbone:
   name: "resnet50"
 method_kwargs:
-  proj_hidden_dim: 2048 # 4096
+  proj_hidden_dim: 4096
   proj_output_dim: 256
-  pred_hidden_dim: 2048 # 4096
+  pred_hidden_dim: 4096
   au_scale_loss: 0.01
 momentum:
   base_tau: 0.99
@@ -31,7 +31,7 @@ data:
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 256
+  batch_size: 512 # 256
   lr: 1
   classifier_lr: 0.2
   weight_decay: 1e-6
@@ -50,8 +50,8 @@ auto_resume:
 
 # overwrite PL stuff
 max_epochs: 400
-devices: [0, 1]
-sync_batchnorm: True
+devices: [0, 1] #SBATCH --gres=gpu:2
+sync_batchnorm: True #SBATCH --gpus-per-node=2
 accelerator: "gpu"
 strategy: "ddp"
 precision: 16-mixed
