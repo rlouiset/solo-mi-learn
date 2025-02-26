@@ -8,7 +8,7 @@
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=2
 #SBATCH --gres=gpu:2
-#SBATCH --partition V100
+#SBATCH --partition A100
 #SBATCH --output byol_bs_512_IN100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
