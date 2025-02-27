@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: vicreg.yaml # asymmetric.yaml
+  - augmentations: asymmetric.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -16,9 +16,9 @@ method: "byol"
 backbone:
   name: "resnet50"
 method_kwargs:
-  proj_hidden_dim: 2048 # 4096
+  proj_hidden_dim: 4096
   proj_output_dim: 256
-  pred_hidden_dim: 2048 # 4096
+  pred_hidden_dim: 4096
 momentum:
   base_tau: 0.99
   final_tau: 1
