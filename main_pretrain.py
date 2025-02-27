@@ -229,6 +229,8 @@ def main(cfg: DictConfig):
     )
     trainer = Trainer(**trainer_kwargs)
 
+
+
     if cfg.data.format == "dali":
         trainer.fit(model, ckpt_path=ckpt_path, datamodule=dali_datamodule)
     else:
