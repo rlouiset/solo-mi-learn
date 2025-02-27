@@ -6,8 +6,9 @@
 #SBATCH --mem 100G
 #SBATCH --cpus-per-task=8
 #SBATCH --gpus-per-node=2
-#SBATCH --gres=gpu:2
-#SBATCH --partition A100
+#SBATCH --gres=gpu:4
+#SBATCH --nodes=2
+#SBATCH --partition V100
 #SBATCH --output byol_bs_512_IN100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
