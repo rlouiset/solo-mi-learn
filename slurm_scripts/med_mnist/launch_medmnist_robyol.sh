@@ -4,9 +4,9 @@
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 50G
-#SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:1
-#SBATCH --gpus-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --gres=gpu:2
+#SBATCH --gpus-per-node=2
 #SBATCH --partition V100
 #SBATCH --output robyol_bs_512_bloodmnist.txt
 
