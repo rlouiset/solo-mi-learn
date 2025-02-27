@@ -3,8 +3,8 @@
 #SBATCH --job-name byol_bs_512_A100_IN100
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
-#SBATCH --mem 100G
-#SBATCH --cpus-per-task=8
+#SBATCH --mem 120G
+#SBATCH --cpus-per-task=10
 #SBATCH --gres=gpu:3
 #SBATCH --gpus-per-node=3
 #SBATCH --partition A100
