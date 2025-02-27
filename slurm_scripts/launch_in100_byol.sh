@@ -5,8 +5,8 @@
 #SBATCH --nodes=1
 #SBATCH --mem 100G
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:3
-#SBATCH --gpus-per-node=3
+#SBATCH --gres=gpu:4
+#SBATCH --gpus-per-node=4
 #SBATCH --partition A100
 #SBATCH --output byol_bs_512_A100_IN100.txt
 
