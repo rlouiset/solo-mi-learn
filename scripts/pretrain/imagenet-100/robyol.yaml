@@ -50,8 +50,8 @@ auto_resume:
 
 # overwrite PL stuff
 max_epochs: 400
-devices: [0, 1, 2] #SBATCH --gres=gpu:2
-gpus: 3
+# devices: [0, 1, 2] #SBATCH --gres=gpu:2
+gpus: 4
 sync_batchnorm: True #SBATCH --gpus-per-node=2
 accelerator: "gpu"
 strategy: "ddp"
