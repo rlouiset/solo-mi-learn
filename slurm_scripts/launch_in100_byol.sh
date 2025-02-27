@@ -1,14 +1,14 @@
 #!/bin/bash
 
-#SBATCH --job-name byol_bs_256_IN100
+#SBATCH --job-name byol_bs_512_V100_IN100
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 100G
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:3
 #SBATCH --gpus-per-node=3
-#SBATCH --partition A100
-#SBATCH --output byol_bs_256_IN100.txt
+#SBATCH --partition V100
+#SBATCH --output byol_bs_512_V100_IN100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
