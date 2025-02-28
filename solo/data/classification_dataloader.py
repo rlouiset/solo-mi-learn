@@ -256,8 +256,6 @@ def prepare_datasets(
             transform=T_train,
             size=128
         )
-        for i in range(len(train_dataset[0][1])):
-            train_dataset[0][1][i] = train_dataset[0][1][i].to(dtype=torch.float32)
         DatasetClass = vars(medmnist)[dataset]
         val_dataset = DatasetClass(
             root=val_data_path,
@@ -266,8 +264,6 @@ def prepare_datasets(
             transform=T_val,
             size=128
         )
-        for i in range(len(train_dataset[0][1])):
-            val_dataset[0][1][i] = val_dataset[0][1][i].to(dtype=torch.float32)
 
     elif dataset == "stl10":
         train_dataset = STL10(

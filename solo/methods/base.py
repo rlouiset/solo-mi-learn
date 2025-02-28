@@ -584,6 +584,9 @@ class BaseMethod(pl.LightningModule):
         X, targets = batch
         batch_size = targets.size(0)
 
+        print(X[0].shape)
+        print(type(X[0]))
+
         if len(targets.shape) > 1:
             if targets.size(1) == 1:
                 targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
