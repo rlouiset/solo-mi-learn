@@ -11,10 +11,10 @@ hydra:
   run:
     dir: .
 
-name: "mocov2plus-in100"
+name: "mocov2plus-vit-in100"
 method: "mocov2plus"
 backbone:
-  name: "resnet50"
+  name: "vit_small"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 256
