@@ -429,6 +429,10 @@ class BaseMethod(pl.LightningModule):
 
         if not self.no_channel_last:
             X = X.to(memory_format=torch.channels_last)
+        print(X[0].shape)
+        print(type(X[0]))
+        print(X[0].dtype)
+        print(debug)
         feats = self.backbone(X)
         logits = self.classifier(feats.detach())
         return {"logits": logits, "feats": feats}
@@ -583,9 +587,6 @@ class BaseMethod(pl.LightningModule):
 
         X, targets = batch
         batch_size = targets.size(0)
-
-        print(X[0].shape)
-        print(type(X[0]))
 
         if len(targets.shape) > 1:
             if targets.size(1) == 1:
