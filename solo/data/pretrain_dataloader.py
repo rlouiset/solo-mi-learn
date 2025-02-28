@@ -344,9 +344,8 @@ def prepare_datasets(
             train_dataset[0][1][i] = train_dataset[0][1][i].to(dtype=torch.float16)"""
         print(train_dataset[0][0])
         print(train_dataset[0][1][0].shape)
-        print(train_dataset[0][1][0][0].shape)
-        print(type(train_dataset[0][1][0]))
-        print(train_dataset[0][1][0])
+        print(train_dataset[0][1][1].shape)
+        print(train_dataset[1][1][0].shape)
         print(debug)
 
     elif dataset == "stl10":
