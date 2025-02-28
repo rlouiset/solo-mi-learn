@@ -49,5 +49,5 @@ max_epochs: 200
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
-strategy: "ddp"
+strategy: "dp"
 precision: 16-mixed

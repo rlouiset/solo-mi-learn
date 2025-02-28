@@ -62,6 +62,7 @@ from solo.utils.momentum import MomentumUpdater, initialize_momentum_params
 import os
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
+
 def static_lr(
     get_lr: Callable,
     param_group_indexes: Sequence[int],
@@ -432,10 +433,6 @@ class BaseMethod(pl.LightningModule):
 
         if not self.no_channel_last:
             X = X.to(memory_format=torch.channels_last)
-        """print(X[0].shape)
-        print(type(X[0]))
-        print(X[0].dtype)
-        print(debug)"""
         print(X.shape)
         if X.shape[-1] == 128:
             X.to(dtype=torch.float16)
