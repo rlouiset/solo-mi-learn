@@ -267,7 +267,7 @@ def prepare_datasets(
             size=128
         )
         for i in range(len(train_dataset[0][1])):
-            val_dataset[0][1][i] = val_dataset[0][1][i].to(dtype=torch.float32)
+            val_dataset[0][1][i] = val_dataset[0][1][i].astype(np.int32)
 
     elif dataset == "stl10":
         train_dataset = STL10(
