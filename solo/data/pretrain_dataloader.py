@@ -31,8 +31,6 @@ from torch.utils.data.dataset import Dataset
 from torchvision import transforms
 from torchvision.datasets import STL10, ImageFolder
 import medmnist
-import numpy as np
-
 
 try:
     from solo.data.h5_dataset import H5Dataset
@@ -343,7 +341,7 @@ def prepare_datasets(
         )
         print(len(train_dataset[0][1]))
         for i in range(len(train_dataset[0][1])):
-            train_dataset[0][1][i] = train_dataset[0][1][i].astype(np.int32)
+            train_dataset[0][1][i] = train_dataset[0][1][i].to(dtype=torch.float32)
         print(train_dataset[0][0])
         print(train_dataset[0][1][0].shape)
         print(type(train_dataset[0][1][0]))
