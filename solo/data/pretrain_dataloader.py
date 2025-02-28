@@ -340,7 +340,7 @@ def prepare_datasets(
             size=128
         )
         print(train_dataset[0][0])
-        print(train_dataset[0][1].shape)
+        print(train_dataset[0][1][0].shape)
 
     elif dataset == "stl10":
         train_dataset = dataset_with_index(STL10)(
