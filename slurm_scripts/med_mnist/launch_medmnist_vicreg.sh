@@ -12,7 +12,7 @@
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name barlow_blood.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name vicreg_blood.yaml
 
 
 
