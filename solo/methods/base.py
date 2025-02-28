@@ -59,6 +59,9 @@ from solo.utils.misc import omegaconf_select, remove_bias_and_norm_from_weight_d
 from solo.utils.momentum import MomentumUpdater, initialize_momentum_params
 
 
+import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
 def static_lr(
     get_lr: Callable,
     param_group_indexes: Sequence[int],
