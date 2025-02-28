@@ -31,7 +31,7 @@ data:
   num_workers: 4
 optimizer:
   name: "adamw"
-  batch_size: 258
+  batch_size: 256
   lr: 6.0e-4
   classifier_lr: 6.0e-4
   weight_decay: 0.1
