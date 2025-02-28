@@ -339,6 +339,8 @@ def prepare_datasets(
             transform=transform,
             size=128
         )
+        print(train_dataset[0][1].shape)
+        train_dataset[0][1] = train_dataset[0][1].to(dtype=torch.float32)
         print(train_dataset[0][0])
         print(train_dataset[0][1][0].shape)
         print(type(train_dataset[0][1][0]))

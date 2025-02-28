@@ -128,8 +128,6 @@ class SimCLR(BaseMethod):
 
         indexes = batch[0]
 
-        print(debug)
-
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
         z = torch.cat(out["z"])
