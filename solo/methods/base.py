@@ -429,10 +429,14 @@ class BaseMethod(pl.LightningModule):
 
         if not self.no_channel_last:
             X = X.to(memory_format=torch.channels_last)
-        print(X[0].shape)
+        """print(X[0].shape)
         print(type(X[0]))
         print(X[0].dtype)
-        print(debug)
+        print(debug)"""
+        print(X.shape)
+        if X.shape[-1] == 128:
+            X.to(dtype=torch.float16)
+        torch.cuda.empty_cache()
         feats = self.backbone(X)
         logits = self.classifier(feats.detach())
         return {"logits": logits, "feats": feats}

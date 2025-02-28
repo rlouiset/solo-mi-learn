@@ -257,8 +257,8 @@ def prepare_datasets(
             transform=T_train,
             size=128
         )
-        for i in range(len(train_dataset)):
-            train_dataset[i][1][0] = train_dataset[i][1][0].astype(np.float16)
+        """for i in range(len(train_dataset)):
+            train_dataset[i][1][0] = train_dataset[i][1][0].astype(np.float16)"""
 
         DatasetClass = vars(medmnist)[dataset]
         val_dataset = DatasetClass(
@@ -268,8 +268,8 @@ def prepare_datasets(
             transform=T_val,
             size=128
         )
-        for i in range(len(val_dataset)):
-            val_dataset[i][1][0] = val_dataset[i][1][0].astype(np.float16)
+        """for i in range(len(val_dataset)):
+            val_dataset[i][1][0] = val_dataset[i][1][0].astype(np.float16)"""
 
     elif dataset == "stl10":
         train_dataset = STL10(
