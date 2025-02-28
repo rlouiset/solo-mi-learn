@@ -58,11 +58,6 @@ from solo.utils.metrics import accuracy_at_k, weighted_mean
 from solo.utils.misc import omegaconf_select, remove_bias_and_norm_from_weight_decay
 from solo.utils.momentum import MomentumUpdater, initialize_momentum_params
 
-
-import os
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-
-
 def static_lr(
     get_lr: Callable,
     param_group_indexes: Sequence[int],
@@ -433,10 +428,6 @@ class BaseMethod(pl.LightningModule):
 
         if not self.no_channel_last:
             X = X.to(memory_format=torch.channels_last)
-        print(X.shape)
-        if X.shape[-1] == 128:
-            X.to(dtype=torch.float16)
-        torch.cuda.empty_cache()
         feats = self.backbone(X)
         logits = self.classifier(feats.detach())
         return {"logits": logits, "feats": feats}
