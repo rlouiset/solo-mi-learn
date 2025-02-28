@@ -257,7 +257,7 @@ def prepare_datasets(
             size=128
         )
         for i in range(len(train_dataset[0][1])):
-            train_dataset[0][1][i] = train_dataset[0][1][i].to(dtype=torch.float32)
+            train_dataset[0][1][i] = train_dataset[0][1][i].astype(np.int32)
         DatasetClass = vars(medmnist)[dataset]
         val_dataset = DatasetClass(
             root=val_data_path,
