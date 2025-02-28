@@ -5,14 +5,14 @@
 #SBATCH --nodes=1
 #SBATCH --mem 80G
 #SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:1
-#SBATCH --gpus-per-node=1
+#SBATCH --gres=gpu:2
+#SBATCH --gpus-per-node=2
 #SBATCH --partition V100
 #SBATCH --output ssl_bs_512_medmnist.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name barlow_path.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name barlow_blood.yaml
 
 
 
