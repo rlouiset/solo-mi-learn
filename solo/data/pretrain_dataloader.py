@@ -341,7 +341,7 @@ def prepare_datasets(
         )
         print(len(train_dataset[0][1]))
         for i in range(len(train_dataset[0][1])):
-            train_dataset[0][1][i] = train_dataset[0][1][i].to(dtype=torch.float32)
+            train_dataset[0][1][i] = train_dataset[0][1][i].to(dtype=torch.float16)
         print(train_dataset[0][0])
         print(train_dataset[0][1][0].shape)
         print(type(train_dataset[0][1][0]))
