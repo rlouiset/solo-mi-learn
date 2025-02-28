@@ -339,14 +339,9 @@ def prepare_datasets(
             transform=transform,
             size=128
         )
-        print(len(train_dataset[0][1]))
-        """for i in range(len(train_dataset[0][1])):
-            train_dataset[0][1][i] = train_dataset[0][1][i].to(dtype=torch.float16)"""
-        print(train_dataset[0][0])
-        print(train_dataset[0][1][0].shape)
-        print(train_dataset[0][1][1].shape)
-        print(train_dataset[1][1][0].shape)
-        print(debug)
+        for i in range(len(train_dataset)):
+            train_dataset[i][1][0] = train_dataset[i][1][0].to(dtype=torch.float16)
+            train_dataset[i][1][1] = train_dataset[i][1][1].to(dtype=torch.float16)
 
     elif dataset == "stl10":
         train_dataset = dataset_with_index(STL10)(
