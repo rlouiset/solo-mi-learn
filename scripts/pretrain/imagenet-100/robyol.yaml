@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.01-align-unif-lr0.3-in100"
+name: "robyol-0.01-align-unif-lr2-in100"
 method: "robyol"
 backbone:
   name: "resnet50"
@@ -32,8 +32,8 @@ data:
 optimizer:
   name: "lars"
   batch_size: 256
-  lr: 0.3 # 1 for 256
-  classifier_lr: 0.1 # 0.2 for 256
+  lr: 2 # 1 for 256
+  classifier_lr: 0.4 # 0.2 for 256
   weight_decay: 1e-6
   kwargs:
     clip_lr: True
