@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol_0.5-1finaltau-align-unif-blood128"
+name: "robyol_0.5-align-unif-blood128"
 method: "robyol"
 backbone:
   name: "resnet18"
@@ -22,7 +22,7 @@ method_kwargs:
   au_scale_loss: 0.5
 momentum:
   base_tau: 0.99
-  final_tau: 1
+  final_tau: 0.99
 data:
   dataset: BloodMNIST
   train_path: "./datasets"
@@ -32,8 +32,8 @@ data:
 optimizer:
   name: "lars"
   batch_size: 256 # 512
-  lr: 1.0
-  classifier_lr: 0.1
+  lr: 2
+  classifier_lr: 0.2
   weight_decay: 1e-5
   kwargs:
     clip_lr: True
