@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "simsiam-0.5au-blood" # change here for cifar100
+name: "simsiam-blood128" # change here for cifar100
 method: "simsiam"
 backbone:
   name: "resnet18"
@@ -20,7 +20,7 @@ method_kwargs:
   proj_output_dim: 2048
   pred_hidden_dim: 512
   temperature: 0.2
-  au_scale_loss: 0.5
+  au_scale_loss: 0.0
 data:
   dataset: BloodMNIST
   train_path: "./datasets"
@@ -29,7 +29,7 @@ data:
   num_workers: 4
 optimizer:
   name: "sgd"
-  batch_size: 512
+  batch_size: 256 # 512
   lr: 0.5
   classifier_lr: 0.1
   weight_decay: 1e-5
@@ -44,7 +44,7 @@ auto_resume:
 
 # overwrite PL stuff
 max_epochs: 200
-devices: [0]
+devices: [0, 1]
 sync_batchnorm: True
 accelerator: "gpu"
 strategy: "ddp"
