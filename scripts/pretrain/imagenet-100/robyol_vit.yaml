@@ -34,7 +34,7 @@ optimizer:
   batch_size: 256
   lr: 3.0e-3
   classifier_lr: 3.0e-3
-  weight_decay: 1e-6
+  weight_decay: 1e-4 # 0.1
 scheduler:
   name: "warmup_cosine"
 checkpoint:
