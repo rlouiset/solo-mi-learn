@@ -25,15 +25,15 @@ momentum:
   final_tau: 1.0
 data:
   dataset: imagenet100
-  train_path: "./datasets/imagenet-100/train"
-  val_path: "./datasets/imagenet-100/val"
+  train_path: "/home/ids/rareme/imagenet-100/train"
+  val_path: "/home/ids/rareme/imagenet-100/val"
   format: "dali"
   num_workers: 4
 optimizer:
   name: "adamw"
-  batch_size: 128
-  lr: 0.005
-  classifier_lr: 3e-3
+  batch_size: 256
+  lr: 0.01
+  classifier_lr: 6e-3
   weight_decay: 1e-4
 scheduler:
   name: "warmup_cosine"
