@@ -25,8 +25,8 @@ momentum:
   final_tau: 1.0
 data:
   dataset: imagenet100
-  train_path: "./datasets/imagenet-100/train"
-  val_path: "./datasets/imagenet-100/val"
+  train_path: "/home/ids/rareme/imagenet-100/train"
+  val_path: "/home/ids/rareme/imagenet-100/val"
   format: "dali"
   num_workers: 4
 optimizer:
