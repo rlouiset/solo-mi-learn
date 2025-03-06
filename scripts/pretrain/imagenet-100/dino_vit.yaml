@@ -14,7 +14,7 @@ hydra:
 name: "dino-vit-imagenet100"
 method: "dino"
 backbone:
-  name: "vit_tiny"
+  name: "vit_small"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 256
@@ -32,8 +32,8 @@ data:
 optimizer:
   name: "adamw"
   batch_size: 256
-  lr: 0.005
-  classifier_lr: 3e-3
+  lr: 0.01 # 05
+  classifier_lr: 6e-3
   weight_decay: 1e-4
 scheduler:
   name: "warmup_cosine"
