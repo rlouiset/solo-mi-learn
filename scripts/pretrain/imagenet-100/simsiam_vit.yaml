@@ -14,7 +14,7 @@ hydra:
 name: "simsiam-vit-0.01au-imagenet100"
 method: "simsiam"
 backbone:
-  name: "resnet50"
+  name: "vit_small"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 2048
@@ -28,11 +28,11 @@ data:
   format: "dali"
   num_workers: 4
 optimizer:
-  name: "sgd"
-  batch_size: 256 # 128
-  lr: 1 # 0.5
-  classifier_lr: 0.2 # 0.1
-  weight_decay: 1e-5
+  name: "adamw"
+  batch_size: 256
+  lr: 6.0e-4
+  classifier_lr: 6.0e-4
+  weight_decay: 0.1
 scheduler:
   name: "warmup_cosine"
 checkpoint:
