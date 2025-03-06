@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.01au-multicrop-imagenet100"
+name: "robyol-0.01-align-unif-multicrop-imagenet100"
 method: "robyol"
 backbone:
   name: "resnet50"
@@ -50,7 +50,7 @@ auto_resume:
 
 # overwrite PL stuff
 max_epochs: 400
-devices: [0, 1, 2]
+devices: [0, 1]
 sync_batchnorm: True
 accelerator: "gpu"
 strategy: "ddp"
