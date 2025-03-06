@@ -5,17 +5,14 @@
 #SBATCH --nodes=1
 #SBATCH --mem 80G
 #SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:2
-#SBATCH --gpus-per-node=2
-#SBATCH --partition A100
+#SBATCH --gres=gpu:1
+#SBATCH --gpus-per-node=1
+#SBATCH --partition V100
 #SBATCH --output robyol_bs_512_bloodmnist.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name simsiam_blood.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name dino_blood.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name simsiam_blood_2.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name mocov2plus_blood.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name simsiam_path.yaml
 
 
 
