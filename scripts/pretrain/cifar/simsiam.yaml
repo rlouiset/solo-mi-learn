@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "rosiam-0.001au-cifar100" # change here for cifar100
+name: "rosiam-0.001au-cifar10" # change here for cifar100
 method: "simsiam"
 backbone:
   name: "resnet18"
@@ -22,7 +22,7 @@ method_kwargs:
   temperature: 0.2
   au_scale_loss: 0.001
 data:
-  dataset: cifar100 # change here for cifar100
+  dataset: cifar10 # change here for cifar100
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
