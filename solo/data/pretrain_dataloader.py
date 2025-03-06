@@ -330,18 +330,15 @@ def prepare_datasets(
             transform=transform,
         )
 
-    elif dataset in ["BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST"]:
+    elif dataset in ["BloodMNIST", "PathMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = dataset_with_index(DatasetClass)(
             root=train_data_path,
             split="train",
             download=download,
             transform=transform,
-            size=128
+            size=28
         )
-        """for i in range(len(train_dataset)):
-            train_dataset[i][1][0] = train_dataset[i][1][0].to(dtype=torch.float16)
-            train_dataset[i][1][1] = train_dataset[i][1][1].to(dtype=torch.float16)"""
 
     elif dataset == "stl10":
         train_dataset = dataset_with_index(STL10)(

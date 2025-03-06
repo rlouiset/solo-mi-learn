@@ -248,14 +248,14 @@ def prepare_datasets(
             transform=T_val,
         )
 
-    elif dataset in ["BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST"]:
+    elif dataset in ["BloodMNIST", "PathMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = DatasetClass(
             root=train_data_path,
             split="train",
             download=True,
             transform=T_train,
-            size=128
+            size=28
         )
 
         DatasetClass = vars(medmnist)[dataset]
@@ -264,7 +264,7 @@ def prepare_datasets(
             split="test",
             download=download,
             transform=T_val,
-            size=128
+            size=28
         )
         """for i in range(len(val_dataset)):
             val_dataset[i][1][0] = val_dataset[i][1][0].astype(np.float16)"""
