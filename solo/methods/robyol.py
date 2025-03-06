@@ -213,7 +213,7 @@ class RoBYOL(BaseMomentumMethod):
                 au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
                 au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 
-        # Feature dimension task
+        """# Feature dimension task
         p1_norm_feat = torch.nn.functional.normalize(Z_momentum[0], dim=0)
         p2_norm_feat = torch.nn.functional.normalize(Z_momentum[1], dim=0)
         z1_norm_feat = torch.nn.functional.normalize(Z[0], dim=0)
@@ -236,7 +236,7 @@ class RoBYOL(BaseMomentumMethod):
             )
             * 0.5
         ).sqrt()
-        feature_loss = (0.5 * on_diag_feat + 0.5 * off_diag_feat) * 10
+        feature_loss = (0.5 * on_diag_feat + 0.5 * off_diag_feat) * 10"""
 
         # calculate std of features
         with torch.no_grad():
@@ -258,4 +258,4 @@ class RoBYOL(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss + 0.01 * feature_loss
+        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss # + 0.01 * feature_loss
