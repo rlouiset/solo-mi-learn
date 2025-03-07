@@ -30,8 +30,8 @@ data:
 optimizer:
   name: "adamw"
   batch_size: 256
-  lr: 6.0e-4
-  classifier_lr: 6.0e-4
+  lr: 3.0e-4 # 6.0
+  classifier_lr: 3.0e-4 # 6.0
   weight_decay: 0.1
 scheduler:
   name: "warmup_cosine"
