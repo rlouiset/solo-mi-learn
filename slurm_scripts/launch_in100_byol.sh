@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name byol_bs_512_A100_IN100
+#SBATCH --job-name dino_bs_512_A100_IN100
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 120G

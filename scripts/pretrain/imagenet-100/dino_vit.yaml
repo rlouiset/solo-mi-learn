@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "dino-vit-imagenet100"
+name: "dino-smaller-lr-vit-imagenet100"
 method: "dino"
 backbone:
   name: "vit_small"
