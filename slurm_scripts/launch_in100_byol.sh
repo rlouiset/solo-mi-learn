@@ -6,7 +6,7 @@
 #SBATCH --mem 120G
 #SBATCH --cpus-per-task=10
 #SBATCH --gres=gpu:2
-#SBATCH --partition V100-32GB
+#SBATCH --partition A100
 #SBATCH --output dino_bs_512_A100_IN100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
