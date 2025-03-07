@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=10
 #SBATCH --gres=gpu:2
 #SBATCH --partition L40S
-#SBATCH --output byol_bs_512_A100_IN100.txt
+#SBATCH --output dino_bs_512_A100_IN100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
