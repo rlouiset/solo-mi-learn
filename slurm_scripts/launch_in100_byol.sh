@@ -6,7 +6,7 @@
 #SBATCH --mem 120G
 #SBATCH --cpus-per-task=10
 #SBATCH --gres=gpu:2
-#SBATCH --partition A100
+#SBATCH --partition L40S
 #SBATCH --output simsiam_bs_512_A100_IN100.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
