@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --mem 120G
 #SBATCH --cpus-per-task=10
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:3
 #SBATCH --partition A100
 #SBATCH --output simsiam_bs_512_A100_IN100.txt
 
