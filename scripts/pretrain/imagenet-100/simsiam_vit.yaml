@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "simsiam-vit-0.01au-imagenet100"
+name: "simsiam-vit-0.0au-imagenet100"
 method: "simsiam"
 backbone:
   name: "vit_small"
@@ -20,7 +20,7 @@ method_kwargs:
   proj_output_dim: 2048
   pred_hidden_dim: 512
   temperature: 0.2
-  au_scale_loss: 0.01
+  au_scale_loss: 0.0
 data:
   dataset: imagenet100
   train_path: "/home/ids/rareme/imagenet-100/train"
