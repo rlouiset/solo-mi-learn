@@ -29,6 +29,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.datasets import STL10, ImageFolder
 import medmnist
+import numpy as np
 
 try:
     from solo.data.h5_dataset import H5Dataset
@@ -95,7 +96,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
     medmnist_pipeline = {
         "T_train": transforms.Compose(
             [
-                transforms.RandomResizedCrop(28, scale=(0.2, 1)),
+                transforms.RandomResizedCrop(128, scale=(0.2, 1)),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)], p=0.8),
                 transforms.RandomGrayscale(p=0.2),
@@ -247,21 +248,26 @@ def prepare_datasets(
             transform=T_val,
         )
 
-    elif dataset in ["BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST"]:
+    elif dataset in ["BloodMNIST", "PathMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = DatasetClass(
             root=train_data_path,
             split="train",
             download=True,
             transform=T_train,
+            size=28
         )
+
         DatasetClass = vars(medmnist)[dataset]
         val_dataset = DatasetClass(
             root=val_data_path,
             split="test",
             download=download,
             transform=T_val,
+            size=28
         )
+        """for i in range(len(val_dataset)):
+            val_dataset[i][1][0] = val_dataset[i][1][0].astype(np.float16)"""
 
     elif dataset == "stl10":
         train_dataset = STL10(

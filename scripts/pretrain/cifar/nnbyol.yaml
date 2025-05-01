@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "nnbyol-cifar10" # change here for cifar100
+name: "nnbyol-custom-cifar10" # change here for cifar100
 method: "nnbyol"
 backbone:
   name: "resnet18"
@@ -20,6 +20,7 @@ method_kwargs:
   pred_hidden_dim: 4096
   proj_output_dim: 256
   queue_size: 65536
+  au_scale_loss: 0.0
 momentum:
   base_tau: 0.99
   final_tau: 1.0
@@ -31,9 +32,9 @@ data:
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 256
-  lr: 1.0
-  classifier_lr: 0.1
+  batch_size: 512
+  lr: 2.0
+  classifier_lr: 0.2
   weight_decay: 1e-5
   kwargs:
     clip_lr: True

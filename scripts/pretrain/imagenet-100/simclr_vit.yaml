@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: symmetric_derma.yaml
+  - augmentations: symmetric.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,30 +11,26 @@ hydra:
   run:
     dir: .
 
-name: "simclr-derma"
+name: "simclr-vit-imagenet100"
 method: "simclr"
 backbone:
-  name: "resnet18"
+  name: "vit_small"
 method_kwargs:
-  proj_hidden_dim: 2048
-  proj_output_dim: 256
+  proj_hidden_dim: 4096
+  proj_output_dim: 512
   temperature: 0.2
 data:
-  dataset: DermaMNIST
-  train_path: "./datasets"
-  val_path: "./datasets"
-  format: "image_folder"
+  dataset: imagenet100
+  train_path: "/home/ids/rareme/imagenet-100/train"
+  val_path: "/home/ids/rareme/imagenet-100/val"
+  format: "dali"
   num_workers: 4
 optimizer:
-  name: "lars"
-  batch_size: 512
-  lr: 0.2
-  classifier_lr: 0.02
-  weight_decay: 1e-4
-  kwargs:
-    clip_lr: True
-    eta: 0.02
-    exclude_bias_n_norm: True
+  name: "adamw"
+  batch_size: 256
+  lr: 3.0e-4 # 6.0
+  classifier_lr: 3.0e-4 # 6.0
+  weight_decay: 0.1
 scheduler:
   name: "warmup_cosine"
 checkpoint:
@@ -45,8 +41,8 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 200
-devices: [0]
+max_epochs: 400
+devices: [0, 1]
 sync_batchnorm: True
 accelerator: "gpu"
 strategy: "ddp"

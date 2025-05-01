@@ -5,21 +5,14 @@
 #SBATCH --nodes=1
 #SBATCH --mem 80G
 #SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:1
-#SBATCH --gpus-per-node=1
+#SBATCH --gres=gpu:2
+#SBATCH --gpus-per-node=2
 #SBATCH --partition A100
 #SBATCH --output ssl_bs_512_medmnist.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name vicreg_derma.yaml
 srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name vicreg_blood.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name vicreg_path.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name barlow_derma.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name barlow_blood.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name barlow_path.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name dino_blood.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name mocov2plus_derma
 
 
 

@@ -24,6 +24,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
+from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.misc import gather, omegaconf_select
 from solo.utils.momentum import initialize_momentum_params
@@ -54,6 +55,8 @@ class NNBYOL(BaseMomentumMethod):
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
         pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
+
+        self.au_scale_loss = cfg.method_kwargs.au_scale_loss
 
         # projector
         self.projector = nn.Sequential(
@@ -231,7 +234,11 @@ class NNBYOL(BaseMomentumMethod):
         _, nn2_momentum = self.find_nn(z2_momentum)
 
         # ------- negative cosine similarity loss -------
-        neg_cos_sim = byol_loss_func(p1, nn2_momentum) + byol_loss_func(p2, nn1_momentum)
+        neg_cos_sim = (byol_loss_func(p1, nn2_momentum) + byol_loss_func(p2, nn1_momentum))
+        au_loss = 0
+        au_loss += uniform_loss_func(F.normalize(z1, dim=-1))
+        au_loss += uniform_loss_func(F.normalize(z2, dim=-1))
+        au_loss += 2*align_loss_func(F.normalize(z1, dim=-1), F.normalize(z2, dim=-1))
 
         # compute nn accuracy
         b = targets.size(0)
@@ -252,4 +259,4 @@ class NNBYOL(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + class_loss
+        return neg_cos_sim + class_loss + self.au_scale_loss * au_loss

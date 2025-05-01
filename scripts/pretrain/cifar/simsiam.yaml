@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: symmetric_weak.yaml
+  - augmentations: asymmetric.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "simsiam-cifar10" # change here for cifar100
+name: "rosiam-0.001au-cifar10" # change here for cifar100
 method: "simsiam"
 backbone:
   name: "resnet18"
@@ -20,17 +20,18 @@ method_kwargs:
   proj_output_dim: 2048
   pred_hidden_dim: 512
   temperature: 0.2
+  au_scale_loss: 0.001
 data:
   dataset: cifar10 # change here for cifar100
   train_path: "./datasets"
-  val_path: "datasets/imagenet100/val"
+  val_path: "./datasets"
   format: "image_folder"
   num_workers: 4
 optimizer:
   name: "sgd"
-  batch_size: 256
-  lr: 0.5
-  classifier_lr: 0.1
+  batch_size: 512
+  lr: 1
+  classifier_lr: 0.2
   weight_decay: 1e-5
 scheduler:
   name: "warmup_cosine"

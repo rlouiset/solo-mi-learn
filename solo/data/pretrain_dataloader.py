@@ -330,13 +330,14 @@ def prepare_datasets(
             transform=transform,
         )
 
-    elif dataset in ["BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST"]:
+    elif dataset in ["BloodMNIST", "PathMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = dataset_with_index(DatasetClass)(
             root=train_data_path,
             split="train",
             download=download,
             transform=transform,
+            size=28
         )
 
     elif dataset == "stl10":
@@ -350,6 +351,7 @@ def prepare_datasets(
     elif dataset in ["imagenet", "imagenet100"]:
         if data_format == "h5":
             assert _h5_available
+            print(train_data_path)
             train_dataset = dataset_with_index(H5Dataset)(dataset, train_data_path, transform)
         else:
             train_dataset = dataset_with_index(ImageFolder)(train_data_path, transform)

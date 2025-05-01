@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: symmetric_derma.yaml
+  - augmentations: asymmetric.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.1-align-unif-derma"
+name: "robyol-200epochs-0.001-align-unif-stl"
 method: "robyol"
 backbone:
   name: "resnet18"
@@ -19,12 +19,12 @@ method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
   pred_hidden_dim: 4096
-  au_scale_loss: 0.1
+  au_scale_loss: 0.001
 momentum:
   base_tau: 0.99
-  final_tau: 0.99
+  final_tau: 1
 data:
-  dataset: DermaMNIST
+  dataset: stl10
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
@@ -32,8 +32,8 @@ data:
 optimizer:
   name: "lars"
   batch_size: 512
-  lr: 0.2
-  classifier_lr: 0.02
+  lr: 2.0
+  classifier_lr: 0.2
   weight_decay: 1e-5
   kwargs:
     clip_lr: True

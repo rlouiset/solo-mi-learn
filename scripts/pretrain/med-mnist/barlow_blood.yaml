@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "barlow_twins-blood"
+name: "barlow_twins-blood128"
 method: "barlow_twins"
 backbone:
   name: "resnet18"
@@ -27,7 +27,7 @@ data:
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 512
+  batch_size: 256 # 512
   lr: 0.3
   classifier_lr: 0.1
   weight_decay: 1e-4
@@ -46,7 +46,7 @@ auto_resume:
 
 # overwrite PL stuff
 max_epochs: 200
-devices: [0]
+devices: [0, 1]
 sync_batchnorm: True
 accelerator: "gpu"
 strategy: "ddp"

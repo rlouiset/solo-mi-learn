@@ -58,7 +58,6 @@ from solo.utils.metrics import accuracy_at_k, weighted_mean
 from solo.utils.misc import omegaconf_select, remove_bias_and_norm_from_weight_decay
 from solo.utils.momentum import MomentumUpdater, initialize_momentum_params
 
-
 def static_lr(
     get_lr: Callable,
     param_group_indexes: Sequence[int],
@@ -836,7 +835,7 @@ class BaseMomentumMethod(BaseMethod):
             batch_idx (int): index of the batch.
         """
 
-        if self.trainer.global_step > self.last_step:
+        if (self.trainer.global_step) > self.last_step:
             # update momentum backbone and projector
             momentum_pairs = self.momentum_pairs
             for mp in momentum_pairs:
@@ -848,7 +847,7 @@ class BaseMomentumMethod(BaseMethod):
                 cur_step=self.trainer.global_step,
                 max_steps=self.trainer.estimated_stepping_batches,
             )
-        self.last_step = self.trainer.global_step
+        self.last_step = (self.trainer.global_step)
 
     def validation_step(
         self,

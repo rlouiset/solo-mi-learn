@@ -11,26 +11,27 @@ hydra:
   run:
     dir: .
 
-name: "simsiam-imagenet100"
+name: "simsiam-0.01au-imagenet100"
 method: "simsiam"
 backbone:
-  name: "resnet18"
+  name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 2048
   pred_hidden_dim: 512
   temperature: 0.2
+  au_scale_loss: 0.01
 data:
   dataset: imagenet100
-  train_path: "datasets/imagenet100/train"
-  val_path: "datasets/imagenet100/val"
+  train_path: "/home/ids/rareme/imagenet-100/train"
+  val_path: "/home/ids/rareme/imagenet-100/val"
   format: "dali"
   num_workers: 4
 optimizer:
   name: "sgd"
-  batch_size: 128
-  lr: 0.5
-  classifier_lr: 0.1
+  batch_size: 256 # 128
+  lr: 1 # 0.5
+  classifier_lr: 0.2 # 0.1
   weight_decay: 1e-5
 scheduler:
   name: "warmup_cosine"
@@ -40,8 +41,8 @@ checkpoint:
   frequency: 1
 auto_resume:
   enabled: True
-augmentations_cfg: "scripts/configs/defaults/augmentations/symmetric/weak.yaml"
-wandb_cfg: "scripts/configs/defaults/wandb/private.yaml"
+# augmentations_cfg: "scripts/configs/defaults/augmentations/symmetric/weak.yaml"
+# wandb_cfg: "scripts/configs/defaults/wandb/private.yaml"
 # overwrite PL stuff
 max_epochs: 400
 devices: [0, 1]

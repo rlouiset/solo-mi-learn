@@ -53,11 +53,11 @@ augmentations:
     horizontal_flip:
       enabled: True
       prob: 0.5
-    crop_size: 28
+    crop_size: 128
     num_crops: 2
 optimizer:
   name: "lars"
-  batch_size: 512
+  batch_size: 256 # 512
   lr: 0.3
   classifier_lr: 0.1
   weight_decay: 1e-4
@@ -76,7 +76,7 @@ auto_resume:
 
 # overwrite PL stuff
 max_epochs: 200
-devices: [0]
+devices: [0, 1]
 sync_batchnorm: True
 accelerator: "gpu"
 strategy: "ddp"

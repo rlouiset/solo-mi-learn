@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "mocov2plus-big-queue-path"
+name: "mocov2plus-big-queue-blood128"
 method: "mocov2plus"
 backbone:
   name: "resnet18"
@@ -24,14 +24,14 @@ momentum:
   base_tau: 0.99
   final_tau: 0.999
 data:
-  dataset: PathMNIST
+  dataset: BloodMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
   num_workers: 4
 optimizer:
   name: "sgd"
-  batch_size: 512
+  batch_size: 256 # 512
   lr: 0.3
   classifier_lr: 0.3
   weight_decay: 1e-4
@@ -46,7 +46,7 @@ auto_resume:
 
 # overwrite PL stuff
 max_epochs: 200
-devices: [0]
+devices: [0, 1]
 sync_batchnorm: True
 accelerator: "gpu"
 strategy: "ddp"

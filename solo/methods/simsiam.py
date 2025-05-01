@@ -24,6 +24,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.simsiam import simsiam_loss_func
+from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMethod
 
 
@@ -43,6 +44,8 @@ class SimSiam(BaseMethod):
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
         pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
+
+        self.au_scale_loss = cfg.method_kwargs.au_scale_loss
 
         # projector
         self.projector = nn.Sequential(
@@ -136,6 +139,11 @@ class SimSiam(BaseMethod):
         # ------- negative cosine similarity loss -------
         neg_cos_sim = simsiam_loss_func(p1, z2) / 2 + simsiam_loss_func(p2, z1) / 2
 
+        au_loss = 0
+        au_loss += uniform_loss_func(F.normalize(z1, dim=-1))
+        au_loss += uniform_loss_func(F.normalize(z2, dim=-1))
+        au_loss += 2 * align_loss_func(F.normalize(z1, dim=-1), F.normalize(z2, dim=-1))
+
         # calculate std of features
         z1_std = F.normalize(z1, dim=-1).std(dim=0).mean()
         z2_std = F.normalize(z2, dim=-1).std(dim=0).mean()
@@ -147,4 +155,4 @@ class SimSiam(BaseMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + class_loss
+        return neg_cos_sim + class_loss + self.au_scale_loss * au_loss
