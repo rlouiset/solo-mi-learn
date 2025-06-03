@@ -50,6 +50,7 @@ from solo.backbones import (
     vit_tiny,
     wide_resnet28w2,
     wide_resnet28w8,
+    densenet121,
 )
 from solo.utils.knn import WeightedKNNClassifier
 from solo.utils.lars import LARS
@@ -71,6 +72,7 @@ def static_lr(
 
 class BaseMethod(pl.LightningModule):
     _BACKBONES = {
+        "densenet121": densenet121,
         "resnet18": resnet18,
         "resnet50": resnet50,
         "vit_tiny": vit_tiny,
@@ -200,6 +202,10 @@ class BaseMethod(pl.LightningModule):
                     3, 64, kernel_size=3, stride=1, padding=2, bias=False
                 )
                 self.backbone.maxpool = nn.Identity()
+        if self.backbone_name.startswith("densenet"):
+            self.features_dim: int = self.backbone.classifier.weight.shape[1]
+            # remove fc layer
+            self.backbone.classifier = nn.Identity()
         else:
             self.features_dim: int = self.backbone.num_features
         ##############################
