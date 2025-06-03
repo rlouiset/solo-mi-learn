@@ -347,7 +347,7 @@ def prepare_datasets(
             split="train",
             download=download,
             transform=transform,
-            size=320
+            size=224
         )
 
     elif dataset == "stl10":
