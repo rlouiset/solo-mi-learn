@@ -127,7 +127,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         "T_val": transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4823, 0.4466), (0.247, 0.243, 0.261)),
+                Normalize(),
             ]
         ),
     }
@@ -353,6 +353,7 @@ class Normalize():
     def __call__(self, img):
         img = img - img.min()
         img = img / img.max()
+        img = img.repeat(3, 1, 1)
         return img
 
 class AddGaussianNoise(torch.nn.Module):
