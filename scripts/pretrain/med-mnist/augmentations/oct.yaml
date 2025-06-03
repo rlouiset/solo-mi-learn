@@ -1,0 +1,15 @@
+- rrc:
+    enabled: True
+    crop_min_scale: 0.2
+    crop_max_scale: 1.0
+  random_rotation:
+    prob: 1
+    degrees: 45
+  gaussian_blur:
+    prob: 2
+  horizontal_flip:
+    prob: 0.5
+  normalize:
+    custom: True
+  crop_size: 320
+  num_crops: 2

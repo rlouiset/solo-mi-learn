@@ -32,6 +32,8 @@ from torchvision import transforms
 from torchvision.datasets import STL10, ImageFolder
 import medmnist
 
+from solo.data.classification_dataloader import Normalize
+
 try:
     from solo.data.h5_dataset import H5Dataset
 except ImportError:
@@ -234,6 +236,13 @@ def build_transform_pipeline(dataset, cfg):
             ),
         )
 
+    if cfg.random_rotation.prob:
+        augmentations.append(
+            transforms.RandomRotation(
+                cfg.random_rotation.degrees
+            ),
+        )
+
     if cfg.color_jitter.prob:
         augmentations.append(
             transforms.RandomApply(
@@ -265,7 +274,10 @@ def build_transform_pipeline(dataset, cfg):
         augmentations.append(transforms.RandomHorizontalFlip(p=cfg.horizontal_flip.prob))
 
     augmentations.append(transforms.ToTensor())
-    augmentations.append(transforms.Normalize(mean=mean, std=std))
+    if cfg.normalize.custom:
+        augmentations.append(Normalize())
+    else:
+        augmentations.append(transforms.Normalize(mean=mean, std=std))
 
     augmentations = transforms.Compose(augmentations)
     return augmentations
