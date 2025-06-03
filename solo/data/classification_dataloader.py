@@ -300,7 +300,7 @@ def prepare_datasets(
         DatasetClass = vars(medmnist)[dataset]
         val_dataset = DatasetClass(
             root=val_data_path,
-            split="test",
+            split="val",
             download=download,
             transform=T_val,
             size=224
