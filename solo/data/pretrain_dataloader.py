@@ -340,6 +340,16 @@ def prepare_datasets(
             size=28
         )
 
+    elif dataset in ["OCTMNIST"]:
+        DatasetClass = vars(medmnist)[dataset]
+        train_dataset = dataset_with_index(DatasetClass)(
+            root=train_data_path,
+            split="train",
+            download=download,
+            transform=transform,
+            size=320
+        )
+
     elif dataset == "stl10":
         train_dataset = dataset_with_index(STL10)(
             train_data_path,

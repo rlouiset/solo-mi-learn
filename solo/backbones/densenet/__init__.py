@@ -17,41 +17,10 @@
 # OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+from .densenet import densenet121 as default_densenet121
 
-from .convnext import convnext_tiny, convnext_small, convnext_base, convnext_large
-from .poolformer import (
-    poolformer_s12,
-    poolformer_s24,
-    poolformer_s36,
-    poolformer_m36,
-    poolformer_m48,
-)
-from .resnet import resnet18, resnet50
-from .swin import swin_tiny, swin_small, swin_base, swin_large
-from .vit import vit_tiny, vit_small, vit_base, vit_large
-from .wide_resnet import wide_resnet28w2, wide_resnet28w8
+def densenet121(method, *args, **kwargs):
+    return default_densenet121(*args, **kwargs)
 
-__all__ = [
-    "densenet121",
-    "resnet18",
-    "resnet50",
-    "vit_tiny",
-    "vit_small",
-    "vit_base",
-    "vit_large",
-    "swin_tiny",
-    "swin_small",
-    "swin_base",
-    "swin_large",
-    "poolformer_s12",
-    "poolformer_s24",
-    "poolformer_s36",
-    "poolformer_m36",
-    "poolformer_m48",
-    "convnext_tiny",
-    "convnext_small",
-    "convnext_base",
-    "convnext_large",
-    "wide_resnet28w2",
-    "wide_resnet28w8",
-]
+
+__all__ = ["densenet121"]

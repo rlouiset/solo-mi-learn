@@ -18,9 +18,11 @@
 # DEALINGS IN THE SOFTWARE.
 
 import os
+import random
 from pathlib import Path
 from typing import Callable, Optional, Tuple, Union
 
+import torch
 import torchvision
 from timm.data import create_transform
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
@@ -111,6 +113,24 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
             ]
         ),
     }
+    octmnist_pipeline = {
+        "T_train": transforms.Compose(
+            [
+                transforms.RandomRotation(degrees=45),
+                transforms.RandomResizedCrop(320, scale=(0.33, 1)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                AddGaussianNoise(),
+                Normalize(),
+            ]
+        ),
+        "T_val": transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4823, 0.4466), (0.247, 0.243, 0.261)),
+            ]
+        ),
+    }
 
     dermamnist_pipeline = {
         "T_train": transforms.Compose(
@@ -177,6 +197,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         "PathMNIST": medmnist_pipeline,
         "DermaMNIST": dermamnist_pipeline,
         "TissueMNIST": medmnist_pipeline,
+        "OCTMNIST": octmnist_pipeline,
         "stl10": stl_pipeline,
         "imagenet100": imagenet_pipeline,
         "imagenet": imagenet_pipeline,
@@ -230,7 +251,7 @@ def prepare_datasets(
         val_data_path = sandbox_folder / "datasets"
 
     assert dataset in ["cifar10", "cifar100", "stl10", "imagenet", "imagenet100", "custom",
-                       "BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST"]
+                       "BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST", "OCTMNIST"]
 
     if dataset in ["cifar10", "cifar100"]:
         DatasetClass = vars(torchvision.datasets)[dataset.upper()]
@@ -266,8 +287,25 @@ def prepare_datasets(
             transform=T_val,
             size=28
         )
-        """for i in range(len(val_dataset)):
-            val_dataset[i][1][0] = val_dataset[i][1][0].astype(np.float16)"""
+
+    elif dataset in ["OCTMNIST"]:
+        DatasetClass = vars(medmnist)[dataset]
+        train_dataset = DatasetClass(
+            root=train_data_path,
+            split="train",
+            download=True,
+            transform=T_train,
+            size=224
+        )
+
+        DatasetClass = vars(medmnist)[dataset]
+        val_dataset = DatasetClass(
+            root=val_data_path,
+            split="test",
+            download=download,
+            transform=T_val,
+            size=224
+        )
 
     elif dataset == "stl10":
         train_dataset = STL10(
@@ -306,6 +344,29 @@ def prepare_datasets(
         train_dataset.samples = [tuple(p) for p in zip(files, labels)]
 
     return train_dataset, val_dataset
+
+class Normalize():
+    def __init__(self):
+        self.min = 0
+        self.max = 1
+
+    def __call__(self, img):
+        img = img - img.min()
+        img = img / img.max()
+        return img
+
+class AddGaussianNoise(torch.nn.Module):
+    def __init__(self, mean=0., std=0.1, p=0.5):
+        super().__init__()
+        self.mean = mean
+        self.std = std
+        self.p = p
+
+    def forward(self, tensor):
+        if random.random() < self.p:
+            noise = torch.randn_like(tensor) * (self.std*tensor.max()) + self.mean
+            return tensor + noise
+        return tensor
 
 
 def prepare_dataloaders(
