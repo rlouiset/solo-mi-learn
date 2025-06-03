@@ -27,6 +27,7 @@ from .poolformer import (
     poolformer_m48,
 )
 from .resnet import resnet18, resnet50
+from.densenet import densenet121
 from .swin import swin_tiny, swin_small, swin_base, swin_large
 from .vit import vit_tiny, vit_small, vit_base, vit_large
 from .wide_resnet import wide_resnet28w2, wide_resnet28w8
