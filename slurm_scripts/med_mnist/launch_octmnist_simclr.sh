@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:2
 #SBATCH --gpus-per-node=2
-#SBATCH --partition A40
+#SBATCH --partition A100
 #SBATCH --output simclr_octmnist.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
