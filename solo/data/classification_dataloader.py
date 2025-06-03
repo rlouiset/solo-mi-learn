@@ -116,11 +116,10 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
     octmnist_pipeline = {
         "T_train": transforms.Compose(
             [
-                transforms.RandomRotation(degrees=45),
-                transforms.RandomResizedCrop(320, scale=(0.33, 1)),
+                transforms.RandomRotation(degrees=15),
+                transforms.RandomResizedCrop(320, scale=(0.8, 1)),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                AddGaussianNoise(),
                 Normalize(),
             ]
         ),
