@@ -203,6 +203,9 @@ class RoBYOLLRP(BaseMomentumMethod):
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 P = ne_predictor(F.normalize(Z[v2], dim=-1), F.normalize(Z_momentum[v1], dim=-1))
+                print(P.shape)
+                print(Z[v2].shape)
+                print(Z_momentum[v1].shape)
                 P = self.momentum_updater.cur_tau * P + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1)
                 neg_cos_sim += byol_loss_func(F.normalize(P, dim=-1), Z_momentum[v1])
 
