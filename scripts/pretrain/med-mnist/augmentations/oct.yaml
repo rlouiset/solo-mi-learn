@@ -1,6 +1,6 @@
 - rrc:
     enabled: True
-    crop_min_scale: 0.33
+    crop_min_scale: 0.2
     crop_max_scale: 1.0
   random_rotation:
     prob: 1
@@ -19,5 +19,5 @@
     prob: 0.5
   normalize:
     custom: True
-  crop_size: 224
+  crop_size: 320
   num_crops: 2
