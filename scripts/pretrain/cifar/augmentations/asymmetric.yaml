@@ -5,6 +5,8 @@
   random_rotation:
     prob: 0.0
     degrees: 0
+  normalize:
+    custom: False
   color_jitter:
     prob: 0.8
     brightness: 0.4
@@ -28,6 +30,11 @@
     enabled: True
     crop_min_scale: 0.08
     crop_max_scale: 1.0
+  random_rotation:
+    prob: 0.0
+    degrees: 0
+  normalize:
+    custom: False
   color_jitter:
     prob: 0.8
     brightness: 0.4
