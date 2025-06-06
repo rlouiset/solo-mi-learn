@@ -35,6 +35,14 @@ def ne_predictor(zt, zx):
     p -= torch.matmul(zt.T, torch.matmul(zt, zttzx))
     return p
 
+def lrp(zt, zx, safe_eps=1e-12):
+    normfactor = 0.5 * torch.norm(zt, p='fro')
+    normfactor += 0.5 * torch.norm(zx, p='fro') + safe_eps
+
+    p = torch.matmul(torch.linalg.pinv(zt / normfactor), zx / normfactor)
+    return p
+
+
 class RoBYOLLRP(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
         """Implements BYOL (https://arxiv.org/abs/2006.07733).
@@ -199,14 +207,14 @@ class RoBYOLLRP(BaseMomentumMethod):
         # ------- negative cosine similarity loss -------
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                P = F.normalize(ne_predictor(F.normalize(Z[v2], dim=-1), F.normalize(Z_momentum[v1], dim=-1)), dim=-1)
+                P = lrp(Z[v2], Z_momentum[v1])
                 with torch.no_grad():
-                    self.predictor.weight.mul_(0.99).add_(0.01 * P.detach())
+                    self.predictor.weight.mul_(0.9).add_(0.1 * P)
 
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                predictions = self.momentum_updater.cur_tau*self.predictor(F.normalize(Z[v2], dim=-1)) + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1)
+                predictions = self.momentum_updater.cur_tau*self.predictor(Z[v2]) + (1-self.momentum_updater.cur_tau) * Z[v2]
                 neg_cos_sim += byol_loss_func(predictions, Z_momentum[v1])
 
         # ------- negative cosine similarity loss -------
