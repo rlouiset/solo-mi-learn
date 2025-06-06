@@ -71,9 +71,7 @@ class RoBYOLLRP(BaseMomentumMethod):
         initialize_momentum_params(self.projector, self.momentum_projector)
 
         # predictor
-        self.predictor = nn.Sequential(
-            nn.Linear(proj_output_dim, proj_output_dim, bias=False),
-        )
+        self.predictor = nn.Linear(proj_output_dim, proj_output_dim, bias=False)
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
