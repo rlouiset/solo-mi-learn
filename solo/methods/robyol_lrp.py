@@ -70,6 +70,11 @@ class RoBYOLLRP(BaseMomentumMethod):
         )
         initialize_momentum_params(self.projector, self.momentum_projector)
 
+        # predictor
+        self.predictor = nn.Sequential(
+            nn.Linear(proj_output_dim, proj_output_dim, bias=False),
+        )
+
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
         """Adds method specific default values/checks for config.
@@ -198,7 +203,8 @@ class RoBYOLLRP(BaseMomentumMethod):
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 P = F.normalize(ne_predictor(F.normalize(Z[v2], dim=-1), F.normalize(Z_momentum[v1], dim=-1)), dim=-1)
-                predictions = self.momentum_updater.cur_tau*(F.normalize(Z[v2], dim=-1)@P) + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1)
+                self.predictor.weight = 0.9 * self.predictor.weight + 0.1 * P.detach()
+                predictions = self.momentum_updater.cur_tau*(self.predictor(F.normalize(Z[v2]), dim=-1)) + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1)
                 neg_cos_sim += byol_loss_func(predictions, Z_momentum[v1])
 
         # ------- negative cosine similarity loss -------
