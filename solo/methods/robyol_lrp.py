@@ -210,7 +210,7 @@ class RoBYOLLRP(BaseMomentumMethod):
                 for v2 in np.delete(range(self.num_crops), v1):
                     P = lrp(F.normalize(Z[v2].float(), dim=-1), F.normalize(Z_momentum[v1].float(), dim=-1))
                     self.predictor.weight.mul_(0.9).add_(0.1 * P)
-                    self.predictor.weight = F.normalize(self.predictor.weight, dim=-1)
+                    self.predictor.weight.copy_(F.normalize(self.predictor.weight, dim=-1))
 
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
