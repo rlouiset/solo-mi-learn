@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name simclr_224_octmnist
+#SBATCH --job-name simclr_320_octmnist
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 80G
