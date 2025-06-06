@@ -197,11 +197,15 @@ class RoBYOLLRP(BaseMomentumMethod):
         Z_momentum = out["momentum_z"]
 
         # ------- negative cosine similarity loss -------
-        neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 P = F.normalize(ne_predictor(F.normalize(Z[v2], dim=-1), F.normalize(Z_momentum[v1], dim=-1)), dim=-1)
-                self.predictor.weight = 0.9 * self.predictor.weight + 0.1 * nn.Parameter(P.detach(), requires_grad=False)
+                with torch.no_grad():
+                    self.predictor.weight.mul_(0.9).add_(0.1 * P.detach())
+
+        neg_cos_sim = 0
+        for v1 in range(self.num_large_crops):
+            for v2 in np.delete(range(self.num_crops), v1):
                 predictions = self.momentum_updater.cur_tau*(self.predictor(F.normalize(Z[v2]), dim=-1)) + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1)
                 neg_cos_sim += byol_loss_func(predictions, Z_momentum[v1])
 
