@@ -202,7 +202,7 @@ class BaseMethod(pl.LightningModule):
                     3, 64, kernel_size=3, stride=1, padding=2, bias=False
                 )
                 self.backbone.maxpool = nn.Identity()
-        if self.backbone_name.startswith("densenet"):
+        elif self.backbone_name.startswith("densenet"):
             self.features_dim: int = self.backbone.classifier.weight.shape[1]
             # remove fc layer
             self.backbone.classifier = nn.Identity()
