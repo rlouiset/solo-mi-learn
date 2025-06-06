@@ -219,14 +219,12 @@ class RoBYOLLRP(BaseMomentumMethod):
             z_std_teacher = F.normalize(torch.stack(Z_momentum[: self.num_large_crops]), dim=-1).std(dim=1).mean()
             student_entropy = (uniform_loss_func(F.normalize(Z[1], dim=-1)) + uniform_loss_func(F.normalize(Z[0], dim=-1))) / 2
             teacher_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1)) + uniform_loss_func(F.normalize(Z_momentum[0], dim=-1))) / 2
-            predictor_entropy = (uniform_loss_func(F.normalize(P[1], dim=-1)) + uniform_loss_func(F.normalize(P[0], dim=-1))) / 2
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
             "train_z_std_teacher": z_std_teacher,
             "train_student_entropy": student_entropy,
-            "train_predictor_entropy": predictor_entropy,
             "train_teacher_entropy": teacher_entropy
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
