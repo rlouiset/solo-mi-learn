@@ -201,7 +201,7 @@ class RoBYOLLRP(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
                 P = F.normalize(ne_predictor(F.normalize(Z[v2], dim=-1), F.normalize(Z_momentum[v1], dim=-1)), dim=-1)
                 with torch.no_grad():
-                    self.predictor.weight.mul_(0.9).add_(0.1 * P.detach())
+                    self.predictor.weight.mul_(0.99).add_(0.01 * P.detach())
 
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
