@@ -32,6 +32,7 @@ from solo.methods.nnbyol import NNBYOL
 from solo.methods.nnclr import NNCLR
 from solo.methods.nnsiam import NNSiam
 from solo.methods.ressl import ReSSL
+from solo.methods.robyol_lrp import RoBYOLLRP
 from solo.methods.simclr import SimCLR
 from solo.methods.simsiam import SimSiam
 from solo.methods.supcon import SupCon
@@ -60,6 +61,7 @@ METHODS = {
     "nnsiam": NNSiam,
     "ressl": ReSSL,
     "robyol": RoBYOL,
+    "robyol_lrp": RoBYOLLRP,
     "simclr": SimCLR,
     "simsiam": SimSiam,
     "supcon": SupCon,
@@ -84,6 +86,7 @@ __all__ = [
     "NNSiam",
     "ReSSL",
     "RoBYOL",
+    "RoBYOLLRP",
     "SimCLR",
     "SimSiam",
     "SupCon",
