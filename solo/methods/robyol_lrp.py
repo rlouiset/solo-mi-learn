@@ -283,7 +283,10 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         W = (closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) +
              closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)) / 2
-        self.W = 0.8 * self.W + 0.2 * W
+        if self.W is not None:
+            self.W = 0.8 * self.W + 0.2 * W
+        else:
+            self.W = W
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
