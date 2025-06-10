@@ -42,23 +42,8 @@ def lrp(zt, zx, safe_eps=1e-12):
     p = torch.matmul(torch.linalg.pinv(zt / normfactor), zx / normfactor)
     return p
 
-def closed_form_linear_predictor(Z, T, ridge=1e-1):
-    """
-    Computes the closed-form linear regression predictor:
-        W = (Z^T Z + λI)^(-1) Z^T T
-    where:
-        - Z is z_online [B, d]
-        - T is z_teacher [B, d]
-    Ridge regularization (λ) helps numerical stability.
+"""def closed_form_linear_predictor(Z, T, ridge=1e-1):
 
-    Args:
-        z_online (torch.Tensor): [B, d] — input with gradient
-        z_teacher (torch.Tensor): [B, d] — detached target
-        ridge (float): regularization parameter
-
-    Returns:
-        torch.Tensor: W — the linear predictor matrix [d, d]
-    """
     B, d = Z.shape
 
     Z_mean = Z.mean(dim=0, keepdim=True)
@@ -76,7 +61,31 @@ def closed_form_linear_predictor(Z, T, ridge=1e-1):
     # Use pseudo-inverse instead of solve
     W = torch.linalg.pinv(ZTZ_reg) @ ZTT
 
+    return W"""
+
+def closed_form_linear_predictor(z_online, z_teacher):
+    """
+    Computes the least-squares linear predictor from z_online to z_teacher.
+
+    Args:
+        z_online (torch.Tensor): [B, d], requires_grad
+        z_teacher (torch.Tensor): [B, d], detached
+
+    Returns:
+        torch.Tensor: W — the predictor matrix [d, d]
+    """
+    B, d = z_online.shape
+
+    # Center the data
+    Z = z_online - z_online.mean(dim=0, keepdim=True)
+    T = z_teacher - z_teacher.mean(dim=0, keepdim=True)
+
+    # Solve Z @ W ≈ T using least squares
+    # torch.linalg.lstsq returns solution to min_W ||Z @ W - T||^2
+    # Output shape: [d, d]
+    W, *_ = torch.linalg.lstsq(Z, T)
     return W
+
 
 
 def apply_predictor(Z, W):
