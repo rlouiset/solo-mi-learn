@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol_lrp-with_EMA_and_identity-cifar10-bs1024" # change here for cifar100
+name: "byol_lrp-with_EMA_mean_center_and_identity-cifar10-bs1024" # change here for cifar100
 method: "robyol_lrp"
 backbone:
   name: "resnet18"

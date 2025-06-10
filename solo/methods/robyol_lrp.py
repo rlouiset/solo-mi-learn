@@ -63,7 +63,7 @@ def lrp(zt, zx, safe_eps=1e-12):
 
     return W"""
 
-def closed_form_linear_predictor(z_online, z_teacher, ridge=0.1):
+def closed_form_linear_predictor(z_online, z_teacher, ridge=0.15):
     """
     Computes the least-squares linear predictor from z_online to z_teacher.
 
@@ -76,16 +76,16 @@ def closed_form_linear_predictor(z_online, z_teacher, ridge=0.1):
     """
     B, d = z_online.shape
 
-    """# Center the data
+    # Center the data
     Z = z_online - z_online.mean(dim=0, keepdim=True)
-    T = z_teacher - z_teacher.mean(dim=0, keepdim=True)"""
+    T = z_teacher - z_teacher.mean(dim=0, keepdim=True)
 
     # Solve Z @ W ≈ T using least squares
     # torch.linalg.lstsq returns solution to min_W ||Z @ W - T||^2
     # Output shape: [d, d]
     # Augment the data for ridge regression
-    Z_aug = torch.cat([z_online, math.sqrt(ridge) * torch.eye(d, device=z_online.device)])
-    T_aug = torch.cat([z_teacher, torch.zeros(d, d, device=z_online.device)])
+    Z_aug = torch.cat([Z, math.sqrt(ridge) * torch.eye(d, device=Z.device)])
+    T_aug = torch.cat([T, torch.zeros(d, d, device=Z.device)])
     W, *_ = torch.linalg.lstsq(Z_aug, T_aug)
     return W
 
@@ -102,9 +102,9 @@ def apply_predictor(Z, W):
     Returns:
         torch.Tensor: [B, d]
     """
-    """Z_mean = Z.mean(dim=0, keepdim=True)
-    Z_centered = Z - Z_mean"""
-    P = Z @ W
+    Z_mean = Z.mean(dim=0, keepdim=True)
+    Z_centered = Z - Z_mean
+    P = Z_centered @ W
     return P
 
 def refresh_stack(stack, batch, max_batch_size=4096):
@@ -283,8 +283,8 @@ class RoBYOLLRP(BaseMomentumMethod):
             self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].float())
             self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].float())
 
-            self.W = 0.99*self.W + 0.01*(closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) +
-                                         closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)) / 2
+            self.W = 0.9*self.W + 0.1*(closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) +
+                                       closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)) / 2
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
