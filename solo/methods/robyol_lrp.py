@@ -42,7 +42,7 @@ def lrp(zt, zx, safe_eps=1e-12):
     p = torch.matmul(torch.linalg.pinv(zt / normfactor), zx / normfactor)
     return p
 
-def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-2):
+def closed_form_linear_predictor(Z, T, ridge=1e-2):
     """
     Computes the closed-form linear regression predictor:
         W = (Z^T Z + λI)^(-1) Z^T T
@@ -59,30 +59,23 @@ def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-2):
     Returns:
         torch.Tensor: W — the linear predictor matrix [d, d]
     """
-    B, d = z_online.shape
-    Z = z_online
-    T = z_teacher
+    B, d = Z.shape
 
-    Z_mean = Z.mean(dim=0, keepdim=True)
-    T_mean = T.mean(dim=0, keepdim=True)
-    Z_centered = Z - Z_mean
-    T_centered = T - T_mean
-
-    ZTZ = Z_centered.T @ Z_centered / B
-    ZTT = Z_centered.T @ T_centered / B
+    ZTZ = Z.T @ Z
+    ZTT = Z.T @ T / B
 
     # Regularize ZTZ
     ridge_identity = ridge * torch.eye(d, device=Z.device, dtype=Z.dtype)
     ZTZ_reg = ZTZ + ridge_identity
 
     # Use pseudo-inverse instead of solve
-    print()
     W = torch.linalg.pinv(ZTZ_reg) @ ZTT
+    print(torch.norm(W, p='fro'))
 
     return W
 
 
-def apply_predictor(z_online, W):
+def apply_predictor(Z, W):
     """
     Apply the linear predictor to z_online.
 
@@ -93,11 +86,8 @@ def apply_predictor(z_online, W):
     Returns:
         torch.Tensor: [B, d]
     """
-    # Optionally re-center the input as before
-    z_mean = z_online.mean(dim=0, keepdim=True)
-    z_centered = z_online - z_mean
-    prediction = z_centered @ W
-    return prediction
+    P = Z @ W
+    return P
 
 
 class RoBYOLLRP(BaseMomentumMethod):
@@ -267,15 +257,15 @@ class RoBYOLLRP(BaseMomentumMethod):
         with torch.no_grad():
             for v1 in range(self.num_large_crops):
                 for v2 in np.delete(range(self.num_crops), v1):
-                    W = closed_form_linear_predictor(Z[v2].float().detach(), Z_momentum[v1].float().detach())
-                    self.W = 0.8 * self.W + 0.2 * W.detach()
+                    self.W = closed_form_linear_predictor(Z[v2].float().detach(), Z_momentum[v1].float().detach())
+                    # self.W = 0.8 * self.W + 0.2 * W.detach()
                     # self.P = self.momentum_updater.cur_tau * self.P + (1-self.momentum_updater.cur_tau) * self.I
 
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                predictions = apply_predictor(Z[v2], self.W)
-                neg_cos_sim += byol_loss_func(predictions, Z_momentum[v1])
+                P = apply_predictor(Z[v2], self.W)
+                neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
 
         """# ------- negative cosine similarity loss -------
         au_loss = 0
