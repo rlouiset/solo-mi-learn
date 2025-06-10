@@ -142,10 +142,10 @@ class RoBYOLLRP(BaseMomentumMethod):
         )
         initialize_momentum_params(self.projector, self.momentum_projector)
 
-        self.Z_momentum_v2_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda()
-        self.Z_v2_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda()
-        self.Z_momentum_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda()
-        self.Z_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda()
+        self.Z_momentum_v2_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
+        self.Z_v2_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
+        self.Z_momentum_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
+        self.Z_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
 
         # self.predictor = nn.Linear(proj_output_dim, proj_output_dim)
 
@@ -264,10 +264,10 @@ class RoBYOLLRP(BaseMomentumMethod):
         Z = out["z"]
         Z_momentum = out["momentum_z"]
 
-        self.Z_v1_stack = refresh_stack(self.Z_v1_stack, Z[0].detach())
-        self.Z_v2_stack = refresh_stack(self.Z_v2_stack, Z[1].detach())
-        self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].detach())
-        self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].detach())
+        self.Z_v1_stack = refresh_stack(self.Z_v1_stack, Z[0].detach().float())
+        self.Z_v2_stack = refresh_stack(self.Z_v2_stack, Z[1].detach().float())
+        self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].detach().float())
+        self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].detach().float())
 
         W = closed_form_linear_predictor(torch.cat((self.Z_v1_stack, self.Z_v2_stack), dim=0),
                                          torch.cat((self.Z_momentum_v2_stack, self.Z_momentum_v1_stack), dim=0))
