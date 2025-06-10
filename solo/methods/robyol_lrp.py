@@ -42,7 +42,7 @@ def lrp(zt, zx, safe_eps=1e-12):
     p = torch.matmul(torch.linalg.pinv(zt / normfactor), zx / normfactor)
     return p
 
-def closed_form_linear_predictor(Z, T, ridge=1e-2):
+def closed_form_linear_predictor(Z, T, ridge=1e-1):
     """
     Computes the closed-form linear regression predictor:
         W = (Z^T Z + λI)^(-1) Z^T T
@@ -95,6 +95,17 @@ def apply_predictor(Z, W):
     P = Z_centered @ W
     return P
 
+def refresh_stack(stack, batch, max_batch_size=16394):
+    len_batch = len(batch)
+    if len(stack) >= max_batch_size:
+        stack = torch.cat((stack[len_batch:], batch.detach()), dim=0)
+    elif len(stack) > 0:
+        stack = torch.cat((stack, batch.detach()), dim=0)
+    else:
+        stack = batch.detach()
+    return stack
+
+
 
 class RoBYOLLRP(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
@@ -130,6 +141,11 @@ class RoBYOLLRP(BaseMomentumMethod):
             nn.Linear(proj_hidden_dim, proj_output_dim),
         )
         initialize_momentum_params(self.projector, self.momentum_projector)
+
+        self.Z_momentum_v2_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda()
+        self.Z_v2_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda()
+        self.Z_momentum_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda()
+        self.Z_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda()
 
         # self.predictor = nn.Linear(proj_output_dim, proj_output_dim)
 
@@ -248,17 +264,22 @@ class RoBYOLLRP(BaseMomentumMethod):
         Z = out["z"]
         Z_momentum = out["momentum_z"]
 
+        self.Z_v1_stack = refresh_stack(self.Z_v1_stack, Z[0].detach())
+        self.Z_v2_stack = refresh_stack(self.Z_v2_stack, Z[1].detach())
+        self.Z_momentum_v1_stack = refresh_stack(self.Z_v1_stack, Z_momentum[0].detach())
+        self.Z_momentum_v2_stack = refresh_stack(self.Z_v2_stack, Z_momentum[1].detach())
+
+        W = closed_form_linear_predictor(torch.cat((self.Z_v1_stack, self.Z_v2_stack), dim=0),
+                                         torch.cat((self.Z_momentum_v2_stack, self.Z_momentum_v1_stack), dim=0))
+
+
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                W = closed_form_linear_predictor(Z[v2].float().detach(), Z_momentum[v1].float().detach())
-                # W = F.normalize(W, dim=-1)
-                # self.W = 0.8 * self.W + 0.2 * W.detach()
                 # self.P = self.momentum_updater.cur_tau * self.P + (1-self.momentum_updater.cur_tau) * self.I
 
                 P = apply_predictor(Z[v2], W)
-                # P = self.predictor(Z[v2])
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
 
         """# ------- negative cosine similarity loss -------
