@@ -80,7 +80,7 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         # predictor
         self.P = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
-        self.I = F.normalize(torch.eye(n=proj_output_dim, device="cuda", requires_grad=False).cuda(), dim=-1)
+        self.I = torch.eye(n=proj_output_dim, device="cuda", requires_grad=False).cuda()
 
 
     @staticmethod
@@ -210,9 +210,12 @@ class RoBYOLLRP(BaseMomentumMethod):
         with torch.no_grad():
             for v1 in range(self.num_large_crops):
                 for v2 in np.delete(range(self.num_crops), v1):
-                    P = lrp(Z[v2].float(), Z_momentum[v1].float())
+                    P = ne_predictor(F.normalize(Z[v2].float(), dim=-1), F.normalize(Z_momentum[v1].float(), dim=-1))
+                    P = F.normalize(P, dim=-1)
                     self.P = 0.8 * self.P + 0.2 * P.detach()
+                    self.P = F.normalize(self.P, dim=-1)
                     self.P = self.momentum_updater.cur_tau * self.P + (1-self.momentum_updater.cur_tau) * self.I
+                    self.P = F.normalize(self.P, dim=-1)
 
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
