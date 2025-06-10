@@ -42,10 +42,6 @@ def lrp(zt, zx, safe_eps=1e-12):
     p = torch.matmul(torch.linalg.pinv(zt / normfactor), zx / normfactor)
     return p
 
-
-import torch
-
-
 def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-4):
     """
     Computes the closed-form linear regression predictor:
@@ -143,7 +139,7 @@ class RoBYOLLRP(BaseMomentumMethod):
         initialize_momentum_params(self.projector, self.momentum_projector)
 
         # predictor
-        self.P = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
+        self.W = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
         self.I = torch.eye(n=proj_output_dim, device="cuda", requires_grad=False).cuda()
 
 
