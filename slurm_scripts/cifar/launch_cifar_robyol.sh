@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --partition V100
-#SBATCH --output robyol_lrp_no_bias.txt
+#SBATCH --output robyol_lrp.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
