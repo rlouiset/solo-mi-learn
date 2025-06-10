@@ -42,7 +42,7 @@ def lrp(zt, zx, safe_eps=1e-12):
     p = torch.matmul(torch.linalg.pinv(zt / normfactor), zx / normfactor)
     return p
 
-def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-4):
+def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-3):
     """
     Computes the closed-form linear regression predictor:
         W = (Z^T Z + λI)^(-1) Z^T T
@@ -59,28 +59,24 @@ def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-4):
     Returns:
         torch.Tensor: W — the linear predictor matrix [d, d]
     """
-
     B, d = z_online.shape
     Z = z_online
     T = z_teacher
 
-    # Centering might help, though not strictly necessary
     Z_mean = Z.mean(dim=0, keepdim=True)
     T_mean = T.mean(dim=0, keepdim=True)
     Z_centered = Z - Z_mean
     T_centered = T - T_mean
 
-    # Compute covariance matrices
     ZTZ = Z_centered.T @ Z_centered / B
     ZTT = Z_centered.T @ T_centered / B
 
-    # Add ridge regularization for stability
+    # Regularize ZTZ
     ridge_identity = ridge * torch.eye(d, device=Z.device, dtype=Z.dtype)
     ZTZ_reg = ZTZ + ridge_identity
 
-    # Solve linear system instead of explicit inverse
-    # We want W such that (ZTZ + λI) W = ZTT
-    W = torch.linalg.solve(ZTZ_reg.float(), ZTT.float())
+    # Use pseudo-inverse instead of solve
+    W = torch.linalg.pinv(ZTZ_reg) @ ZTT
 
     return W
 
