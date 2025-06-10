@@ -70,7 +70,6 @@ def closed_form_linear_predictor(Z, T, ridge=1e-2):
 
     # Use pseudo-inverse instead of solve
     W = torch.linalg.pinv(ZTZ_reg) @ ZTT
-    print(torch.norm(W, p='fro'))
 
     return W
 
@@ -257,13 +256,17 @@ class RoBYOLLRP(BaseMomentumMethod):
         with torch.no_grad():
             for v1 in range(self.num_large_crops):
                 for v2 in np.delete(range(self.num_crops), v1):
+                    Z_momentum[v1] = F.normalize(Z_momentum[v1], dim=-1)
+                    Z[v2] = F.normalize(Z[v2], dim=-1)
                     self.W = closed_form_linear_predictor(Z[v2].float().detach(), Z_momentum[v1].float().detach())
+                    self.W = F.normalize(self.W, dim=-1)
                     # self.W = 0.8 * self.W + 0.2 * W.detach()
                     # self.P = self.momentum_updater.cur_tau * self.P + (1-self.momentum_updater.cur_tau) * self.I
 
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
+                Z[v2] = F.normalize(Z[v2], dim=-1)
                 P = apply_predictor(Z[v2], self.W)
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
 
