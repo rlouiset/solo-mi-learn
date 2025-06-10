@@ -158,7 +158,7 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         self.W = None
 
-        self.predictor = nn.Linear(proj_output_dim, proj_output_dim, bias=False)
+        # self.predictor = nn.Linear(proj_output_dim, proj_output_dim)
 
         # predictor
         # self.W = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
@@ -195,7 +195,7 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         extra_learnable_params = [
             {"name": "projector", "params": self.projector.parameters()},
-            {"name": "predictor", "params": self.predictor.parameters()}
+            # {"name": "predictor", "params": self.predictor.parameters()}
         ]
         return super().learnable_params + extra_learnable_params
 
@@ -292,10 +292,9 @@ class RoBYOLLRP(BaseMomentumMethod):
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                # P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
+                P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
 
                 # P = apply_predictor(Z[v2], W)
-                P = self.predictor(Z[v2])
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
 
         """# ------- negative cosine similarity loss -------
