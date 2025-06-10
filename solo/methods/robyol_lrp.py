@@ -24,7 +24,7 @@ import omegaconf
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from solo.losses.byol import byol_loss_func
+from solo.losses.byol import byol_loss_func, unnormalized_byol_loss_func
 from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
@@ -210,24 +210,22 @@ class RoBYOLLRP(BaseMomentumMethod):
         with torch.no_grad():
             for v1 in range(self.num_large_crops):
                 for v2 in np.delete(range(self.num_crops), v1):
-                    P = ne_predictor(F.normalize(Z[v2].float().detach(), dim=-1), F.normalize(Z_momentum[v1].float(), dim=-1))
-                    self.P = 0.9 * self.P + 0.1 * P
-                    self.P = F.normalize(self.P, dim=-1)
+                    P = lrp(Z[v2].float(), Z_momentum[v1].float())
+                    self.P = 0.8 * self.P + 0.2 * P.detach()
                     self.P = self.momentum_updater.cur_tau * self.P + (1-self.momentum_updater.cur_tau) * self.I
-                    self.P = F.normalize(self.P, dim=-1)
 
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 predictions = Z[v2]@self.P
-                neg_cos_sim += byol_loss_func(predictions, Z_momentum[v1])
+                neg_cos_sim += unnormalized_byol_loss_func(predictions, Z_momentum[v1])
 
-        # ------- negative cosine similarity loss -------
+        """# ------- negative cosine similarity loss -------
         au_loss = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
-                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
+                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))"""
 
         # calculate std of features
         with torch.no_grad():
@@ -245,4 +243,4 @@ class RoBYOLLRP(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss
+        return neg_cos_sim + class_loss # + self.au_scale_loss * au_loss
