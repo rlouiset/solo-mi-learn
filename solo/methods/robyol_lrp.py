@@ -63,7 +63,7 @@ def lrp(zt, zx, safe_eps=1e-12):
 
     return W"""
 
-def closed_form_linear_predictor(z_online, z_teacher):
+def closed_form_linear_predictor(z_online, z_teacher, ridge=0.1):
     """
     Computes the least-squares linear predictor from z_online to z_teacher.
 
@@ -83,7 +83,10 @@ def closed_form_linear_predictor(z_online, z_teacher):
     # Solve Z @ W ≈ T using least squares
     # torch.linalg.lstsq returns solution to min_W ||Z @ W - T||^2
     # Output shape: [d, d]
-    W, *_ = torch.linalg.lstsq(z_online, z_teacher)
+    # Augment the data for ridge regression
+    Z_aug = torch.cat([z_online, torch.sqrt(ridge) * torch.eye(d, device=z_online.device)])
+    T_aug = torch.cat([z_teacher, torch.zeros(d, d, device=z_online.device)])
+    W, *_ = torch.linalg.lstsq(Z_aug, T_aug)
     return W
 
 
@@ -99,9 +102,9 @@ def apply_predictor(Z, W):
     Returns:
         torch.Tensor: [B, d]
     """
-    Z_mean = Z.mean(dim=0, keepdim=True)
-    Z_centered = Z - Z_mean
-    P = Z_centered @ W
+    """Z_mean = Z.mean(dim=0, keepdim=True)
+    Z_centered = Z - Z_mean"""
+    P = Z @ W
     return P
 
 def refresh_stack(stack, batch, max_batch_size=4096):
@@ -294,7 +297,7 @@ class RoBYOLLRP(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
 
                 # P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
-                W = closed_form_linear_predictor(Z[v2].detach().float(), Z_momentum[v1].detach().float())
+                W = closed_form_linear_predictor(Z[v1].detach().float(), Z_momentum[v2].detach().float())
                 P = apply_predictor(Z[v2], W.detach())
                 # P = self.predictor(Z[v2])
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
