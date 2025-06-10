@@ -76,9 +76,9 @@ def closed_form_linear_predictor(z_online, z_teacher):
     """
     B, d = z_online.shape
 
-    # Center the data
+    """# Center the data
     Z = z_online - z_online.mean(dim=0, keepdim=True)
-    T = z_teacher - z_teacher.mean(dim=0, keepdim=True)
+    T = z_teacher - z_teacher.mean(dim=0, keepdim=True)"""
 
     # Solve Z @ W ≈ T using least squares
     # torch.linalg.lstsq returns solution to min_W ||Z @ W - T||^2
@@ -158,7 +158,7 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         self.W = None
 
-        self.predictor = nn.Linear(proj_output_dim, proj_output_dim, bias=False)
+        # self.predictor = nn.Linear(proj_output_dim, proj_output_dim, bias=False)
 
         # predictor
         # self.W = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
@@ -281,21 +281,22 @@ class RoBYOLLRP(BaseMomentumMethod):
             self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].float())
             self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].float())
 
-        W = (closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) +
+        """W = (closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) +
              closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)) / 2
         if self.W is not None:
             self.W = 0.8 * self.W + 0.2 * W
         else:
-            self.W = W
+            self.W = W"""
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                # P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
 
-                # P = apply_predictor(Z[v2], W)
-                P = self.predictor(Z[v2])
+                # P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
+                W = closed_form_linear_predictor(Z[v1], Z_momentum[v2])
+                P = apply_predictor(Z[v2], W)
+                # P = self.predictor(Z[v2])
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
 
         """# ------- negative cosine similarity loss -------
