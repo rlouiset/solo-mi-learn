@@ -125,8 +125,8 @@ class RoBYOLLRP(BaseMomentumMethod):
         initialize_momentum_params(self.projector, self.momentum_projector)
 
         # predictor
-        self.W = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
-        self.I = torch.eye(n=proj_output_dim, device="cuda", requires_grad=False).cuda()
+        # self.W = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
+        # self.I = torch.eye(n=proj_output_dim, device="cuda", requires_grad=False).cuda()
 
 
     @staticmethod
@@ -253,21 +253,17 @@ class RoBYOLLRP(BaseMomentumMethod):
         Z_momentum = out["momentum_z"]
 
         # ------- negative cosine similarity loss -------
-        with torch.no_grad():
-            for v1 in range(self.num_large_crops):
-                for v2 in np.delete(range(self.num_crops), v1):
-                    Z_momentum[v1] = F.normalize(Z_momentum[v1], dim=-1)
-                    Z[v2] = F.normalize(Z[v2], dim=-1)
-                    self.W = closed_form_linear_predictor(Z[v2].float().detach(), Z_momentum[v1].float().detach())
-                    self.W = F.normalize(self.W, dim=-1)
-                    # self.W = 0.8 * self.W + 0.2 * W.detach()
-                    # self.P = self.momentum_updater.cur_tau * self.P + (1-self.momentum_updater.cur_tau) * self.I
-
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
+                Z_momentum[v1] = F.normalize(Z_momentum[v1], dim=-1)
                 Z[v2] = F.normalize(Z[v2], dim=-1)
-                P = apply_predictor(Z[v2], self.W)
+                W = closed_form_linear_predictor(Z[v2].float().detach(), Z_momentum[v1].float().detach())
+                W = F.normalize(W, dim=-1)
+                # self.W = 0.8 * self.W + 0.2 * W.detach()
+                # self.P = self.momentum_updater.cur_tau * self.P + (1-self.momentum_updater.cur_tau) * self.I
+
+                P = apply_predictor(Z[v2], W)
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
 
         """# ------- negative cosine similarity loss -------
