@@ -269,8 +269,8 @@ class RoBYOLLRP(BaseMomentumMethod):
         self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].detach().float())
         self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].detach().float())
 
-        W = closed_form_linear_predictor(torch.cat((self.Z_v1_stack, self.Z_v2_stack), dim=0),
-                                         torch.cat((self.Z_momentum_v2_stack, self.Z_momentum_v1_stack), dim=0))
+        W = closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) + closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)
+        W = W / 2
 
 
         # ------- negative cosine similarity loss -------
