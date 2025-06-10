@@ -266,8 +266,8 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         self.Z_v1_stack = refresh_stack(self.Z_v1_stack, Z[0].detach())
         self.Z_v2_stack = refresh_stack(self.Z_v2_stack, Z[1].detach())
-        self.Z_momentum_v1_stack = refresh_stack(self.Z_v1_stack, Z_momentum[0].detach())
-        self.Z_momentum_v2_stack = refresh_stack(self.Z_v2_stack, Z_momentum[1].detach())
+        self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].detach())
+        self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].detach())
 
         W = closed_form_linear_predictor(torch.cat((self.Z_v1_stack, self.Z_v2_stack), dim=0),
                                          torch.cat((self.Z_momentum_v2_stack, self.Z_momentum_v1_stack), dim=0))
