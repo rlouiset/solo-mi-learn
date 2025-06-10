@@ -107,7 +107,7 @@ def apply_predictor(Z, W):
     P = Z @ W
     return P
 
-def refresh_stack(stack, batch, max_batch_size=8192):
+def refresh_stack(stack, batch, max_batch_size=4096):
     len_batch = len(batch)
     if len(stack) >= max_batch_size:
         stack = torch.cat((stack[len_batch:], batch.detach()), dim=0)
@@ -159,12 +159,11 @@ class RoBYOLLRP(BaseMomentumMethod):
         self.Z_momentum_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
         self.Z_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
 
-        self.W = None
 
         # self.predictor = nn.Linear(proj_output_dim, proj_output_dim, bias=False)
 
         # predictor
-        # self.W = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
+        self.W = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
         # self.I = torch.eye(n=proj_output_dim, device="cuda", requires_grad=False).cuda()
 
 
@@ -284,8 +283,8 @@ class RoBYOLLRP(BaseMomentumMethod):
             self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].float())
             self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].float())
 
-            self.W = (closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) +
-                      closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)) / 2
+            self.W = 0.99*self.W + 0.01*(closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) +
+                                         closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)) / 2
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
@@ -293,8 +292,8 @@ class RoBYOLLRP(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
 
                 # P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
-                # W = closed_form_linear_predictor(Z[v1].detach().float(), Z_momentum[v2].detach().float())
-                P = self.momentum_updater.cur_tau *  apply_predictor(Z[v2], self.W) + (1-self.momentum_updater.cur_tau) * Z[v2]
+                # W = closed_form_linear_predictor(Z[v2].detach().float(), Z_momentum[v1].detach().float())
+                P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], self.W) + (1-self.momentum_updater.cur_tau) * Z[v2]
                 # P = self.predictor(Z[v2])
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
 
