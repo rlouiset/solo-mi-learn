@@ -104,7 +104,7 @@ def apply_predictor(Z, W):
     P = Z_centered @ W
     return P
 
-def refresh_stack(stack, batch, max_batch_size=16394):
+def refresh_stack(stack, batch, max_batch_size=4096):
     len_batch = len(batch)
     if len(stack) >= max_batch_size:
         stack = torch.cat((stack[len_batch:], batch.detach()), dim=0)
@@ -155,6 +155,8 @@ class RoBYOLLRP(BaseMomentumMethod):
         self.Z_v2_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
         self.Z_momentum_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
         self.Z_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
+
+        self.W = None
 
         # self.predictor = nn.Linear(proj_output_dim, proj_output_dim)
 
@@ -273,13 +275,15 @@ class RoBYOLLRP(BaseMomentumMethod):
         Z = out["z"]
         Z_momentum = out["momentum_z"]
 
-        self.Z_v1_stack = refresh_stack(self.Z_v1_stack, Z[0].detach().float())
-        self.Z_v2_stack = refresh_stack(self.Z_v2_stack, Z[1].detach().float())
-        self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].detach().float())
-        self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].detach().float())
+        with torch.no_grad():
+            self.Z_v1_stack = refresh_stack(self.Z_v1_stack, Z[0].float())
+            self.Z_v2_stack = refresh_stack(self.Z_v2_stack, Z[1].float())
+            self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].float())
+            self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].float())
 
-        W = closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) + closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)
-        W = W / 2
+        W = (closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) +
+             closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)) / 2
+        self.W = 0.8 * self.W + 0.2 * W
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
