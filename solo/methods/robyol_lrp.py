@@ -83,7 +83,7 @@ def closed_form_linear_predictor(z_online, z_teacher):
     # Solve Z @ W ≈ T using least squares
     # torch.linalg.lstsq returns solution to min_W ||Z @ W - T||^2
     # Output shape: [d, d]
-    W, *_ = torch.linalg.lstsq(Z, T)
+    W, *_ = torch.linalg.lstsq(z_online, z_teacher)
     return W
 
 
@@ -294,7 +294,7 @@ class RoBYOLLRP(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
 
                 # P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
-                W = closed_form_linear_predictor(Z[v1], Z_momentum[v2])
+                W = closed_form_linear_predictor(Z[v1].detach(), Z_momentum[v2].detach())
                 P = apply_predictor(Z[v2], W)
                 # P = self.predictor(Z[v2])
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
