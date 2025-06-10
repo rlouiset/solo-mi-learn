@@ -293,6 +293,8 @@ class RoBYOLLRP(BaseMomentumMethod):
 
                 # P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
                 # W = closed_form_linear_predictor(Z[v2].detach().float(), Z_momentum[v1].detach().float())
+                Z[v2] = Z[v2] - Z[v2].mean(dim=0, keepdim=True)
+                Z_momentum[v1] = Z_momentum[v1] - Z_momentum[v1].mean(dim=0, keepdim=True)
                 P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], self.W) + (1-self.momentum_updater.cur_tau) * Z[v2]
                 # P = self.predictor(Z[v2])
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
