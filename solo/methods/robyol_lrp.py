@@ -281,14 +281,13 @@ class RoBYOLLRP(BaseMomentumMethod):
         W = closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) + closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)
         W = W / 2
 
-
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                # self.P = self.momentum_updater.cur_tau * self.P + (1-self.momentum_updater.cur_tau) * self.I
+                P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
 
-                P = apply_predictor(Z[v2], W)
+                # P = apply_predictor(Z[v2], W)
                 neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
 
         """# ------- negative cosine similarity loss -------
