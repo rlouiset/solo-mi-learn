@@ -42,7 +42,7 @@ def lrp(zt, zx, safe_eps=1e-12):
     p = torch.matmul(torch.linalg.pinv(zt / normfactor), zx / normfactor)
     return p
 
-def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-3):
+def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-2):
     """
     Computes the closed-form linear regression predictor:
         W = (Z^T Z + λI)^(-1) Z^T T
@@ -76,6 +76,7 @@ def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-3):
     ZTZ_reg = ZTZ + ridge_identity
 
     # Use pseudo-inverse instead of solve
+    print()
     W = torch.linalg.pinv(ZTZ_reg) @ ZTT
 
     return W
