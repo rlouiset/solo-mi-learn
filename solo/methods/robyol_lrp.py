@@ -18,7 +18,7 @@
 # DEALINGS IN THE SOFTWARE.
 
 from typing import Any, Dict, List, Sequence, Tuple
-
+import math
 import numpy as np
 import omegaconf
 import torch
@@ -84,7 +84,7 @@ def closed_form_linear_predictor(z_online, z_teacher, ridge=0.1):
     # torch.linalg.lstsq returns solution to min_W ||Z @ W - T||^2
     # Output shape: [d, d]
     # Augment the data for ridge regression
-    Z_aug = torch.cat([z_online, torch.sqrt(ridge) * torch.eye(d, device=z_online.device)])
+    Z_aug = torch.cat([z_online, math.sqrt(ridge) * torch.eye(d, device=z_online.device)])
     T_aug = torch.cat([z_teacher, torch.zeros(d, d, device=z_online.device)])
     W, *_ = torch.linalg.lstsq(Z_aug, T_aug)
     return W
