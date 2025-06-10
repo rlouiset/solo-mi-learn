@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol_lrp-with_EMA_and_identity-0.0-align-unif-cifar10-bs1024" # change here for cifar100
+name: "byol_lrp-with_EMA_and_identity-cifar10-bs1024" # change here for cifar100
 method: "robyol_lrp"
 backbone:
   name: "resnet18"
@@ -32,7 +32,7 @@ data:
 optimizer:
   name: "lars"
   batch_size: 1024 # 512
-  lr: 1.0
+  lr: 0.5 # 1.0
   classifier_lr: 0.1
   weight_decay: 1e-5
   kwargs:
