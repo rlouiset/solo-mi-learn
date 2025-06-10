@@ -84,7 +84,7 @@ def closed_form_linear_predictor(z_online, z_teacher, ridge=1e-4):
 
     # Solve linear system instead of explicit inverse
     # We want W such that (ZTZ + λI) W = ZTT
-    W = torch.linalg.solve(ZTZ_reg, ZTT)
+    W = torch.linalg.solve(ZTZ_reg.flaot(), ZTT.float())
 
     return W
 
