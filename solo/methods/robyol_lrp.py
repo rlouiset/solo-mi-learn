@@ -195,7 +195,7 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         extra_learnable_params = [
             {"name": "projector", "params": self.projector.parameters()},
-            {"name": "predictor", "params": self.predictor.parameters()}
+            # {"name": "predictor", "params": self.predictor.parameters()}
         ]
         return super().learnable_params + extra_learnable_params
 
