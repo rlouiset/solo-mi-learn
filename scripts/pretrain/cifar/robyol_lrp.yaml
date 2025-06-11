@@ -11,29 +11,28 @@ hydra:
   run:
     dir: .
 
-name: "byol_lrp-with_EMA_mean_center_and_identity-cifar10-bs1024" # change here for cifar100
-method: "robyol_lrp"
+name: "byol-sequential-with-Identity-cifar10"
+method: "byol_lrp"
 backbone:
   name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
   pred_hidden_dim: 4096
-  au_scale_loss: 0.0
 momentum:
   base_tau: 0.99
   final_tau: 1
 data:
-  dataset: cifar10 # change here for cifar100
+  dataset: cifar10
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 1024 # 512
-  lr: 0.5 # 1.0
-  classifier_lr: 0.1
+  batch_size: 512
+  lr: 2.0
+  classifier_lr: 0.2
   weight_decay: 1e-5
   kwargs:
     clip_lr: True

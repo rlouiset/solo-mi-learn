@@ -18,108 +18,19 @@
 # DEALINGS IN THE SOFTWARE.
 
 from typing import Any, Dict, List, Sequence, Tuple
-import math
+
 import numpy as np
 import omegaconf
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from solo.losses.byol import byol_loss_func, unnormalized_byol_loss_func
-from solo.losses.robyol import uniform_loss_func, align_loss_func
+from solo.losses.byol import byol_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
-
-def ne_predictor(zt, zx):
-    zttzx = torch.matmul(zt.T, zx)
-    p = 2.0 * zttzx
-    p -= torch.matmul(zt.T, torch.matmul(zt, zttzx))
-    return p
-
-def lrp(zt, zx, safe_eps=1e-12):
-    normfactor = 0.5 * torch.norm(zt, p='fro')
-    normfactor += 0.5 * torch.norm(zx, p='fro') + safe_eps
-
-    p = torch.matmul(torch.linalg.pinv(zt / normfactor), zx / normfactor)
-    return p
-
-"""def closed_form_linear_predictor(Z, T, ridge=1e-1):
-
-    B, d = Z.shape
-
-    Z_mean = Z.mean(dim=0, keepdim=True)
-    T_mean = T.mean(dim=0, keepdim=True)
-    Z_centered = Z - Z_mean
-    T_centered = T - T_mean
-
-    ZTZ = Z_centered.T @ Z_centered
-    ZTT = Z_centered.T @ T_centered / B
-
-    # Regularize ZTZ
-    ridge_identity = ridge * torch.eye(d, device=Z.device, dtype=Z.dtype)
-    ZTZ_reg = ZTZ + ridge_identity
-
-    # Use pseudo-inverse instead of solve
-    W = torch.linalg.pinv(ZTZ_reg) @ ZTT
-
-    return W"""
-
-def closed_form_linear_predictor(z_online, z_teacher, ridge=0.15):
-    """
-    Computes the least-squares linear predictor from z_online to z_teacher.
-
-    Args:
-        z_online (torch.Tensor): [B, d], requires_grad
-        z_teacher (torch.Tensor): [B, d], detached
-
-    Returns:
-        torch.Tensor: W — the predictor matrix [d, d]
-    """
-    B, d = z_online.shape
-
-    # Center the data
-    Z = z_online - z_online.mean(dim=0, keepdim=True)
-    T = z_teacher - z_teacher.mean(dim=0, keepdim=True)
-
-    # Solve Z @ W ≈ T using least squares
-    # torch.linalg.lstsq returns solution to min_W ||Z @ W - T||^2
-    # Output shape: [d, d]
-    # Augment the data for ridge regression
-    Z_aug = torch.cat([Z, math.sqrt(ridge) * torch.eye(d, device=Z.device)])
-    T_aug = torch.cat([T, torch.zeros(d, d, device=Z.device)])
-    W, *_ = torch.linalg.lstsq(Z_aug, T_aug)
-    return W
+from solo.utils.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 
-
-def apply_predictor(Z, W):
-    """
-    Apply the linear predictor to z_online.
-
-    Args:
-        z_online (torch.Tensor): [B, d]
-        W (torch.Tensor): [d, d]
-
-    Returns:
-        torch.Tensor: [B, d]
-    """
-    Z_mean = Z.mean(dim=0, keepdim=True)
-    Z_centered = Z - Z_mean
-    P = Z_centered @ W
-    return P
-
-def refresh_stack(stack, batch, max_batch_size=4096):
-    len_batch = len(batch)
-    if len(stack) >= max_batch_size:
-        stack = torch.cat((stack[len_batch:], batch.detach()), dim=0)
-    elif len(stack) > 0:
-        stack = torch.cat((stack, batch.detach()), dim=0)
-    else:
-        stack = batch.detach()
-    return stack
-
-
-
-class RoBYOLLRP(BaseMomentumMethod):
+class BYOL3Steps(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
         """Implements BYOL (https://arxiv.org/abs/2006.07733).
 
@@ -134,8 +45,7 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
-
-        self.au_scale_loss = cfg.method_kwargs.au_scale_loss
+        pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
 
         # projector
         self.projector = nn.Sequential(
@@ -154,18 +64,16 @@ class RoBYOLLRP(BaseMomentumMethod):
         )
         initialize_momentum_params(self.projector, self.momentum_projector)
 
-        self.Z_momentum_v2_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
-        self.Z_v2_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
-        self.Z_momentum_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
-        self.Z_v1_stack = torch.rand(size=[0, proj_output_dim], device="cuda", requires_grad=False).cuda().float()
-
-
-        # self.predictor = nn.Linear(proj_output_dim, proj_output_dim, bias=False)
-
         # predictor
-        self.W = torch.rand(size=[proj_output_dim, proj_output_dim], device="cuda", requires_grad=False).cuda()
-        # self.I = torch.eye(n=proj_output_dim, device="cuda", requires_grad=False).cuda()
+        self.predictor = nn.Sequential(
+            nn.Linear(proj_output_dim, pred_hidden_dim),
+            nn.BatchNorm1d(pred_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(pred_hidden_dim, proj_output_dim),
+        )
 
+        # Important: This property activates manual optimization.
+        self.automatic_optimization = False
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -178,14 +86,13 @@ class RoBYOLLRP(BaseMomentumMethod):
             omegaconf.DictConfig: same as the argument, used to avoid errors.
         """
 
-        cfg = super(RoBYOLLRP, RoBYOLLRP).add_and_assert_specific_cfg(cfg)
+        cfg = super(BYOL3Steps, BYOL3Steps).add_and_assert_specific_cfg(cfg)
 
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_output_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.pred_hidden_dim")
 
         return cfg
-
 
     @property
     def learnable_params(self) -> List[dict]:
@@ -197,7 +104,6 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         extra_learnable_params = [
             {"name": "projector", "params": self.projector.parameters()},
-            # {"name": "predictor", "params": self.predictor.parameters()}
         ]
         return super().learnable_params + extra_learnable_params
 
@@ -224,7 +130,8 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         out = super().forward(X)
         z = self.projector(out["feats"])
-        out.update({"z": z})
+        p = self.predictor(z)
+        out.update({"z": z, "p": p})
         return out
 
     def multicrop_forward(self, X: torch.tensor) -> Dict[str, Any]:
@@ -240,7 +147,8 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         out = super().multicrop_forward(X)
         z = self.projector(out["feats"])
-        out.update({"z": z})
+        p = self.predictor(z)
+        out.update({"z": z, "p": p})
         return out
 
     @torch.no_grad()
@@ -260,6 +168,33 @@ class RoBYOLLRP(BaseMomentumMethod):
         out.update({"z": z})
         return out
 
+    def configure_optimizers(self):
+        optimizers, schedulers = super().configure_optimizers()
+        optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), self.lr, momentum=0.9)
+
+        max_warmup_steps = (
+            self.warmup_epochs * (self.trainer.estimated_stepping_batches / self.max_epochs)
+            if self.scheduler_interval == "step"
+            else self.warmup_epochs
+        )
+        max_scheduler_steps = (
+            self.trainer.estimated_stepping_batches
+            if self.scheduler_interval == "step"
+            else self.max_epochs
+        )
+
+        scheduler_predictor = LinearWarmupCosineAnnealingLR(
+            optimizer_predictor,
+            warmup_epochs=max_warmup_steps,
+            max_epochs=max_scheduler_steps,
+            warmup_start_lr=self.warmup_start_lr if self.warmup_epochs > 0 else self.lr,
+            eta_min=self.min_lr,
+        )
+
+        optimizers.append(optimizer_predictor)
+        schedulers.append(scheduler_predictor)
+        return optimizers, schedulers
+
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
         """Training step for BYOL reusing BaseMethod training step.
 
@@ -271,55 +206,47 @@ class RoBYOLLRP(BaseMomentumMethod):
         Returns:
             torch.Tensor: total loss composed of BYOL and classification loss.
         """
+        backbone_opt, pred_opt = self.optimizers()
+        sch, sch_p = self.lr_schedulers()
 
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
         Z = out["z"]
+        P = out["p"]
         Z_momentum = out["momentum_z"]
-
-        with torch.no_grad():
-            self.Z_v1_stack = refresh_stack(self.Z_v1_stack, Z[0].float())
-            self.Z_v2_stack = refresh_stack(self.Z_v2_stack, Z[1].float())
-            self.Z_momentum_v1_stack = refresh_stack(self.Z_momentum_v1_stack, Z_momentum[0].float())
-            self.Z_momentum_v2_stack = refresh_stack(self.Z_momentum_v2_stack, Z_momentum[1].float())
-
-            self.W = 0.9*self.W + 0.1*(closed_form_linear_predictor(self.Z_v1_stack, self.Z_momentum_v2_stack) +
-                                       closed_form_linear_predictor(self.Z_v2_stack, self.Z_momentum_v1_stack)) / 2
 
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
+                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
 
-                # P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], W) + (1-self.momentum_updater.cur_tau) * Z[v2]
-                # W = closed_form_linear_predictor(Z[v2].detach().float(), Z_momentum[v1].detach().float())
-                Z[v2] = Z[v2] - Z[v2].mean(dim=0, keepdim=True)
-                Z_momentum[v1] = Z_momentum[v1] - Z_momentum[v1].mean(dim=0, keepdim=True)
-                P = self.momentum_updater.cur_tau * apply_predictor(Z[v2], self.W) + (1-self.momentum_updater.cur_tau) * Z[v2]
-                # P = self.predictor(Z[v2])
-                neg_cos_sim += byol_loss_func(P, Z_momentum[v1])
+        pred_opt.zero_grad()
+        backbone_opt.zero_grad()
+        self.manual_backward(neg_cos_sim)
+        pred_opt.step()
+        sch_p.step()
 
-        """# ------- negative cosine similarity loss -------
-        au_loss = 0
+        pred_opt.zero_grad()
+        backbone_opt.zero_grad()
+
+        # ------- negative cosine similarity loss -------
+        neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
-                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))"""
+                EMA_P_v2 = self.momentum_updater.current_tau * P[v2] + (1-self.momentum_updater.current_tau) * Z[v2]
+                neg_cos_sim += byol_loss_func(EMA_P_v2, Z_momentum[v1])
+
+        self.manual_backward(neg_cos_sim + class_loss)
+        backbone_opt.step()
+        sch.step()
 
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
-            z_std_teacher = F.normalize(torch.stack(Z_momentum[: self.num_large_crops]), dim=-1).std(dim=1).mean()
-            student_entropy = (uniform_loss_func(F.normalize(Z[1], dim=-1)) + uniform_loss_func(F.normalize(Z[0], dim=-1))) / 2
-            teacher_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1)) + uniform_loss_func(F.normalize(Z_momentum[0], dim=-1))) / 2
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
-            "train_z_std_teacher": z_std_teacher,
-            "train_student_entropy": student_entropy,
-            "train_teacher_entropy": teacher_entropy
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
-
-        return neg_cos_sim + class_loss # + self.au_scale_loss * au_loss
