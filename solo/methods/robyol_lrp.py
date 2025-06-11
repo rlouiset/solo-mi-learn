@@ -204,7 +204,7 @@ class RoBYOLLRP(BaseMomentumMethod):
             batch_idx (int): index of the batch.
 
         Returns:
-            torch.Tensor: total loss composed of BYOL and classification loss.
+            torch.Tensor: total loss composed of BYOL's loss and classification loss.
         """
         backbone_opt, pred_opt = self.optimizers()
         sch, sch_p = self.lr_schedulers()
@@ -234,6 +234,7 @@ class RoBYOLLRP(BaseMomentumMethod):
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
+                P[v2] = self.predictor(Z[v2])
                 EMA_P_v2 = self.momentum_updater.cur_tau * P[v2] + (1-self.momentum_updater.cur_tau) * Z[v2]
                 neg_cos_sim += byol_loss_func(EMA_P_v2, Z_momentum[v1])
 
