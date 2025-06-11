@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-sequential-with-Identity-cifar10"
+name: "byol-sequential-fixed-tau-with-Identity-cifar10"
 method: "robyol_lrp"
 backbone:
   name: "resnet18"
