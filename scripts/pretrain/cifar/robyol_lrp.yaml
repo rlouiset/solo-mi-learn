@@ -12,7 +12,7 @@ hydra:
     dir: .
 
 name: "byol-sequential-with-Identity-cifar10"
-method: "byol_lrp"
+method: "robyol_lrp"
 backbone:
   name: "resnet18"
 method_kwargs:
