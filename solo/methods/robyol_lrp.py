@@ -93,9 +93,6 @@ class RoBYOLLRP(BaseMomentumMethod):
             eta_min=self.min_lr,
         )
 
-        # Important: This property activates manual optimization.
-        self.automatic_optimization = False
-
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
         """Adds method specific default values/checks for config.
@@ -200,9 +197,6 @@ class RoBYOLLRP(BaseMomentumMethod):
         Returns:
             torch.Tensor: total loss composed of BYOL's loss and classification loss.
         """
-        backbone_opt = self.optimizers()
-        sch = self.lr_schedulers()
-
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
         Z = out["z"]
@@ -216,31 +210,33 @@ class RoBYOLLRP(BaseMomentumMethod):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
 
         self.pred_opt.zero_grad()
-        backbone_opt.zero_grad()
-        self.manual_backward(neg_cos_sim, retain_graph=True)
+        neg_cos_sim.backward(retain_graph=True)
         self.pred_opt.step()
         self.sch_p.step()
+        self.pred_opt.zero_grad()
 
         # ------- negative cosine similarity loss -------
+        # recompute P fresh for all crops
+        new_P = [self.predictor(Z[v]) for v in range(self.num_crops)]
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 P[v2] = self.predictor(Z[v2])
-                EMA_P_v2 = self.momentum_updater.cur_tau * P[v2] + (1-self.momentum_updater.cur_tau) * Z[v2]
+                EMA_P_v2 = self.momentum_updater.cur_tau * new_P[v2] + (1-self.momentum_updater.cur_tau) * Z[v2]
                 neg_cos_sim += byol_loss_func(EMA_P_v2, Z_momentum[v1])
-
-        self.pred_opt.zero_grad()
-        backbone_opt.zero_grad()
-        self.manual_backward(neg_cos_sim + class_loss)
-        backbone_opt.step()
-        sch.step()
 
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+            z_momentum_std = F.normalize(torch.stack(Z_momentum[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+            p_std = F.normalize(torch.stack(new_P[: self.num_large_crops]), dim=-1).std(dim=1).mean()
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
+            "train_z_momentum_std": z_momentum_std,
+            "train_p_std": p_std,
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
+
+        return neg_cos_sim + class_loss
