@@ -72,6 +72,8 @@ class RoBYOLLRP(BaseMomentumMethod):
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
+        _, _ = super().configure_optimizers()
+
         self.pred_opt = torch.optim.SGD(self.predictor.parameters(), self.lr, momentum=0.9)
 
         max_warmup_steps = (
