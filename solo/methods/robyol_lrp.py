@@ -223,7 +223,7 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         pred_opt.zero_grad()
         backbone_opt.zero_grad()
-        self.manual_backward(neg_cos_sim)
+        self.manual_backward(neg_cos_sim, retain_graph=True)
         pred_opt.step()
         sch_p.step()
 
