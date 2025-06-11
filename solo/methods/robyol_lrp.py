@@ -72,28 +72,8 @@ class RoBYOLLRP(BaseMomentumMethod):
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
-        _, _ = super().configure_optimizers()
-
-        self.pred_opt = torch.optim.SGD(self.predictor.parameters(), self.lr, momentum=0.9)
-
-        max_warmup_steps = (
-            self.warmup_epochs * (self.trainer.estimated_stepping_batches / self.max_epochs)
-            if self.scheduler_interval == "step"
-            else self.warmup_epochs
-        )
-        max_scheduler_steps = (
-            self.trainer.estimated_stepping_batches
-            if self.scheduler_interval == "step"
-            else self.max_epochs
-        )
-
-        self.sch_p = LinearWarmupCosineAnnealingLR(
-            self.pred_opt,
-            warmup_epochs=max_warmup_steps,
-            max_epochs=max_scheduler_steps,
-            warmup_start_lr=self.warmup_start_lr if self.warmup_epochs > 0 else self.lr,
-            eta_min=self.min_lr,
-        )
+        # Important: This property activates manual optimization.
+        self.automatic_optimization = False
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -188,6 +168,30 @@ class RoBYOLLRP(BaseMomentumMethod):
         out.update({"z": z})
         return out
 
+    def configure_optimizers(self):
+        optimizers, schedulers = super().configure_optimizers()
+        self.optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), self.lr, momentum=0.9)
+
+        max_warmup_steps = (
+            self.warmup_epochs * (self.trainer.estimated_stepping_batches / self.max_epochs)
+            if self.scheduler_interval == "step"
+            else self.warmup_epochs
+        )
+        max_scheduler_steps = (
+            self.trainer.estimated_stepping_batches
+            if self.scheduler_interval == "step"
+            else self.max_epochs
+        )
+
+        self.scheduler_predictor = LinearWarmupCosineAnnealingLR(
+            self.optimizer_predictor,
+            warmup_epochs=max_warmup_steps,
+            max_epochs=max_scheduler_steps,
+            warmup_start_lr=self.warmup_start_lr if self.warmup_epochs > 0 else self.lr,
+            eta_min=self.min_lr,
+        )
+        return optimizers, schedulers
+
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
         """Training step for BYOL reusing BaseMethod training step.
 
@@ -199,6 +203,9 @@ class RoBYOLLRP(BaseMomentumMethod):
         Returns:
             torch.Tensor: total loss composed of BYOL's loss and classification loss.
         """
+        backbone_opt = self.optimizers()
+        sch = self.lr_schedulers()
+
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
         Z = out["z"]
@@ -241,4 +248,7 @@ class RoBYOLLRP(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + class_loss
+        backbone_opt.zero_grad()
+        self.manual_backward(neg_cos_sim + class_loss)
+        backbone_opt.step()
+        sch.step()
