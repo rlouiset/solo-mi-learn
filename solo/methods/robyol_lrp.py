@@ -218,11 +218,11 @@ class RoBYOLLRP(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
 
-        self.pred_opt.zero_grad()
+        self.optimizer_predictor.zero_grad()
         neg_cos_sim.backward(retain_graph=True)
-        self.pred_opt.step()
-        self.sch_p.step()
-        self.pred_opt.zero_grad()
+        self.optimizer_predictor.step()
+        self.scheduler_predictor.step()
+        self.optimizer_predictor.zero_grad()
 
         # ------- negative cosine similarity loss -------
         # recompute P fresh for all crops
