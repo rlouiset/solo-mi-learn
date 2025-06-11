@@ -86,7 +86,7 @@ class RoBYOLLRP(BaseMomentumMethod):
             omegaconf.DictConfig: same as the argument, used to avoid errors.
         """
 
-        cfg = super(BYOL3Steps, BYOL3Steps).add_and_assert_specific_cfg(cfg)
+        cfg = super(RoBYOLLRP, RoBYOLLRP).add_and_assert_specific_cfg(cfg)
 
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_output_dim")
