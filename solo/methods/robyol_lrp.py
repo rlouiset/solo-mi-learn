@@ -25,6 +25,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
+from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 from solo.utils.lr_scheduler import LinearWarmupCosineAnnealingLR
@@ -234,6 +235,14 @@ class RoBYOLLRP(BaseMomentumMethod):
                 EMA_P_v2 = self.momentum_updater.cur_tau * new_P[v2] + (1-self.momentum_updater.cur_tau) * Z[v2]
                 neg_cos_sim += byol_loss_func(EMA_P_v2, Z_momentum[v1])
 
+        # ------- negative cosine similarity loss -------
+        au_loss = 0
+        for v1 in range(self.num_large_crops):
+            for v2 in np.delete(range(self.num_crops), v1):
+                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
+                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
+
+
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
@@ -249,6 +258,6 @@ class RoBYOLLRP(BaseMomentumMethod):
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
         backbone_opt.zero_grad()
-        self.manual_backward(neg_cos_sim + class_loss)
+        self.manual_backward(neg_cos_sim + class_loss + 0.001 * au_loss)
         backbone_opt.step()
         sch.step()
