@@ -841,7 +841,7 @@ class BaseMomentumMethod(BaseMethod):
             batch_idx (int): index of the batch.
         """
 
-        if (self.trainer.global_step) > self.last_step:
+        if self.trainer.global_step > self.last_step:
             # update momentum backbone and projector
             momentum_pairs = self.momentum_pairs
             for mp in momentum_pairs:
@@ -853,7 +853,7 @@ class BaseMomentumMethod(BaseMethod):
                 cur_step=self.trainer.global_step,
                 max_steps=self.trainer.estimated_stepping_batches,
             )
-        self.last_step = (self.trainer.global_step)
+        self.last_step = self.trainer.global_step
 
     def validation_step(
         self,
