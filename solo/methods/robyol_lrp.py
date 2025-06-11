@@ -30,7 +30,7 @@ from solo.utils.momentum import initialize_momentum_params
 from solo.utils.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 
-class BYOLLRP(BaseMomentumMethod):
+class RoBYOLLRP(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
         """Implements BYOL (https://arxiv.org/abs/2006.07733).
 
