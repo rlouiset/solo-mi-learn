@@ -232,16 +232,16 @@ class RoBYOLLRP(BaseMomentumMethod):
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 P[v2] = self.predictor(Z[v2])
-                EMA_P_v2 = self.momentum_updater.cur_tau * new_P[v2] + (1-self.momentum_updater.cur_tau) * Z[v2]
+                EMA_P_v2 = self.momentum_updater.cur_tau * F.normalize(new_P[v2], dim=-1) + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1)
                 neg_cos_sim += byol_loss_func(EMA_P_v2, Z_momentum[v1])
 
         # ------- negative cosine similarity loss -------
-        au_loss = 0
+        """au_loss = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
                 au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
-
+        """
 
         # calculate std of features
         with torch.no_grad():
@@ -258,6 +258,6 @@ class RoBYOLLRP(BaseMomentumMethod):
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
         backbone_opt.zero_grad()
-        self.manual_backward(neg_cos_sim + class_loss + 0.001 * au_loss)
+        self.manual_backward(neg_cos_sim + class_loss)
         backbone_opt.step()
         sch.step()
