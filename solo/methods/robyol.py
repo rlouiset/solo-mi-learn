@@ -204,7 +204,7 @@ class RoBYOL(BaseMomentumMethod):
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+                neg_cos_sim += byol_loss_func(self.momentum_updater.cur_tau * F.normalize(P[v2], dim=-1) + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1), Z_momentum[v1])
 
         # ------- negative cosine similarity loss -------
         au_loss = 0
