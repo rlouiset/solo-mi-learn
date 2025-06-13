@@ -25,11 +25,28 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
-from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
-from solo.utils.lr_scheduler import LinearWarmupCosineAnnealingLR
 
+class Predictor(nn.Module):
+    def __init__(self, proj_output_dim, pred_hidden_dim):
+        super().__init__()
+
+        # predictor
+        self.predictor_nn = nn.Sequential(
+            nn.Linear(proj_output_dim, pred_hidden_dim),
+            nn.BatchNorm1d(pred_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(pred_hidden_dim, proj_output_dim),
+        )
+
+        self.identity = nn.Identity()
+
+        self.alpha = 1
+        self.beta = 0
+
+    def forward(self, z):
+        return self.alpha * self.predictor_nn(z) + self.beta * self.identity(z)
 
 class RoBYOLLRP(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
@@ -66,15 +83,7 @@ class RoBYOLLRP(BaseMomentumMethod):
         initialize_momentum_params(self.projector, self.momentum_projector)
 
         # predictor
-        self.predictor = nn.Sequential(
-            nn.Linear(proj_output_dim, pred_hidden_dim),
-            nn.BatchNorm1d(pred_hidden_dim),
-            nn.ReLU(),
-            nn.Linear(pred_hidden_dim, proj_output_dim),
-        )
-
-        # Important: This property activates manual optimization.
-        self.automatic_optimization = False
+        self.predictor = Predictor(proj_output_dim, pred_hidden_dim)
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -105,6 +114,7 @@ class RoBYOLLRP(BaseMomentumMethod):
 
         extra_learnable_params = [
             {"name": "projector", "params": self.projector.parameters()},
+            {"name": "predictor", "params": self.predictor.parameters()},
         ]
         return super().learnable_params + extra_learnable_params
 
@@ -169,30 +179,6 @@ class RoBYOLLRP(BaseMomentumMethod):
         out.update({"z": z})
         return out
 
-    def configure_optimizers(self):
-        optimizers, schedulers = super().configure_optimizers()
-        self.optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), self.lr, momentum=0.9)
-
-        max_warmup_steps = (
-            self.warmup_epochs * (self.trainer.estimated_stepping_batches / self.max_epochs)
-            if self.scheduler_interval == "step"
-            else self.warmup_epochs
-        )
-        max_scheduler_steps = (
-            self.trainer.estimated_stepping_batches
-            if self.scheduler_interval == "step"
-            else self.max_epochs
-        )
-
-        self.scheduler_predictor = LinearWarmupCosineAnnealingLR(
-            self.optimizer_predictor,
-            warmup_epochs=max_warmup_steps,
-            max_epochs=max_scheduler_steps,
-            warmup_start_lr=self.warmup_start_lr if self.warmup_epochs > 0 else self.lr,
-            eta_min=self.min_lr,
-        )
-        return optimizers, schedulers
-
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
         """Training step for BYOL reusing BaseMethod training step.
 
@@ -202,10 +188,8 @@ class RoBYOLLRP(BaseMomentumMethod):
             batch_idx (int): index of the batch.
 
         Returns:
-            torch.Tensor: total loss composed of BYOL's loss and classification loss.
+            torch.Tensor: total loss composed of BYOL and classification loss.
         """
-        backbone_opt = self.optimizers()
-        sch = self.lr_schedulers()
 
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
@@ -219,45 +203,18 @@ class RoBYOLLRP(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
 
-        self.optimizer_predictor.zero_grad()
-        neg_cos_sim.backward(retain_graph=True)
-        self.optimizer_predictor.step()
-        self.scheduler_predictor.step()
-        self.optimizer_predictor.zero_grad()
-
-        # ------- negative cosine similarity loss -------
-        # recompute P fresh for all crops
-        new_P = [self.predictor(Z[v]) for v in range(self.num_crops)]
-        neg_cos_sim = 0
-        for v1 in range(self.num_large_crops):
-            for v2 in np.delete(range(self.num_crops), v1):
-                P[v2] = self.predictor(Z[v2])
-                EMA_P_v2 = self.momentum_updater.cur_tau * F.normalize(new_P[v2], dim=-1) + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1)
-                neg_cos_sim += byol_loss_func(EMA_P_v2, Z_momentum[v1])
-
-        # ------- negative cosine similarity loss -------
-        """au_loss = 0
-        for v1 in range(self.num_large_crops):
-            for v2 in np.delete(range(self.num_crops), v1):
-                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
-                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
-        """
-
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
-            z_momentum_std = F.normalize(torch.stack(Z_momentum[: self.num_large_crops]), dim=-1).std(dim=1).mean()
-            p_std = F.normalize(torch.stack(new_P[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+
+        with torch.no_grad():
+            self.predictor.predictor_nn.alpha = self.momentum_updater.cur_tau * self.predictor.predictor_nn.alpha
+            self.predictor.predictor_nn.beta = self.momentum_updater.cur_tau * self.predictor.predictor_nn.beta + (1-self.momentum_updater.cur_tau)
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
-            "train_z_momentum_std": z_momentum_std,
-            "train_p_std": p_std,
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        backbone_opt.zero_grad()
-        self.manual_backward(neg_cos_sim + class_loss)
-        backbone_opt.step()
-        sch.step()
+        return neg_cos_sim + class_loss
