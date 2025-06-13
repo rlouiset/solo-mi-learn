@@ -42,8 +42,8 @@ class Predictor(nn.Module):
 
         self.identity = nn.Identity()
 
-        self.alpha = nn.Parameter(torch.tensor(1.))
-        self.beta = nn.Parameter(torch.tensor(0.))
+        self.alpha = nn.Parameter(torch.tensor(1.).float().cuda())
+        self.beta = nn.Parameter(torch.tensor(0.).float().cuda())
 
     def forward(self, z):
         return self.alpha * self.predictor_nn(z) + self.beta * self.identity(z)
@@ -208,6 +208,9 @@ class RoBYOLLRP(BaseMomentumMethod):
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
 
         with torch.no_grad():
+            print(self.predictor.alpha)
+            print( self.momentum_updater.cur_tau)
+            print(self.momentum_updater.cur_tau * self.predictor.alpha)
             self.predictor.alpha = self.momentum_updater.cur_tau * self.predictor.alpha
             self.predictor.beta = self.momentum_updater.cur_tau * self.predictor.beta + (1-self.momentum_updater.cur_tau)
 
