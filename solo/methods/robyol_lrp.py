@@ -179,6 +179,11 @@ class RoBYOLLRP(BaseMomentumMethod):
         out.update({"z": z})
         return out
 
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        with torch.no_grad():
+            self.predictor.alpha.data.mul_(self.momentum_updater.cur_tau)
+            self.predictor.beta.data.mul_(self.momentum_updater.cur_tau).add_(1 - self.momentum_updater.cur_tau)
+
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
         """Training step for BYOL reusing BaseMethod training step.
 
@@ -207,9 +212,6 @@ class RoBYOLLRP(BaseMomentumMethod):
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
 
-        with torch.no_grad():
-            self.predictor.alpha.data.mul_(self.momentum_updater.cur_tau)
-            self.predictor.beta.mul_(self.momentum_updater.cur_tau).add_(1 - self.momentum_updater.cur_tau)
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
