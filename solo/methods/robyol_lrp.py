@@ -42,8 +42,8 @@ class Predictor(nn.Module):
 
         self.identity = nn.Identity()
 
-        self.alpha = 1.
-        self.beta = 0.
+        self.alpha = nn.Parameter(torch.tensor(1.))
+        self.beta = nn.Parameter(torch.tensor(0.))
 
     def forward(self, z):
         return self.alpha * self.predictor_nn(z) + self.beta * self.identity(z)
