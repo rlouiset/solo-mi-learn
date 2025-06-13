@@ -208,12 +208,8 @@ class RoBYOLLRP(BaseMomentumMethod):
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
 
         with torch.no_grad():
-            print(self.predictor.alpha)
-            print( self.momentum_updater.cur_tau)
-            print(self.momentum_updater.cur_tau * self.predictor.alpha)
-            self.predictor.alpha = self.momentum_updater.cur_tau * self.predictor.alpha
-            self.predictor.beta = self.momentum_updater.cur_tau * self.predictor.beta + (1-self.momentum_updater.cur_tau)
-
+            self.predictor.alpha.data.mul_(self.momentum_updater.cur_tau)
+            self.predictor.beta.mul_(self.momentum_updater.cur_tau).add_(1 - self.momentum_updater.cur_tau)
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
