@@ -26,6 +26,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
 from solo.methods.base import BaseMomentumMethod
+from solo.utils.lr_scheduler import LinearWarmupCosineAnnealingLR
 from solo.utils.momentum import initialize_momentum_params
 
 class RoBYOLLRP(BaseMomentumMethod):
@@ -69,6 +70,8 @@ class RoBYOLLRP(BaseMomentumMethod):
             nn.ReLU(),
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
+
+        self.optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), 0.001, momentum=0.9)
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -182,11 +185,22 @@ class RoBYOLLRP(BaseMomentumMethod):
         P = out["p"]
         Z_momentum = out["momentum_z"]
 
+        # --- First pass: train predictor ---
+        neg_cos_sim = 0
+        for v1 in range(self.num_large_crops):
+            for v2 in np.delete(range(self.num_crops), v1):
+                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+        self.optimizer_predictor.zero_grad()
+        neg_cos_sim.backward(retain_graph=True)
+        self.optimizer_predictor.step()
+
+        new_P = [self.predictor(Z[v]) for v in range(self.num_crops)]
+
         # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim += byol_loss_func(self.momentum_updater.cur_tau * P[v2] + (1-self.momentum_updater.cur_tau)*Z[v2], Z_momentum[v1])
+                neg_cos_sim += byol_loss_func(new_P[v2], Z_momentum[v1])
 
         # calculate std of features
         with torch.no_grad():
