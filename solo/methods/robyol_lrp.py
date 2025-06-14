@@ -25,6 +25,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
+from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.lr_scheduler import LinearWarmupCosineAnnealingLR
 from solo.utils.momentum import initialize_momentum_params
@@ -45,6 +46,8 @@ class RoBYOLLRP(BaseMomentumMethod):
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
         pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
+
+        self.au_scale_loss = cfg.method_kwargs.au_scale_loss
 
         # projector
         self.projector = nn.Sequential(
@@ -71,7 +74,7 @@ class RoBYOLLRP(BaseMomentumMethod):
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
-        self.optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), 0.001, momentum=0.9)
+        self.optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), 0.01, momentum=0.9)
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -202,13 +205,33 @@ class RoBYOLLRP(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(new_P[v2], Z_momentum[v1])
 
+        # ------- negative cosine similarity loss -------
+        au_loss = 0
+        for v1 in range(self.num_large_crops):
+            for v2 in np.delete(range(self.num_crops), v1):
+                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
+                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
+
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+            z_std_teacher = F.normalize(torch.stack(Z_momentum[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+            z_std_predictor = F.normalize(torch.stack(P[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+            student_entropy = (uniform_loss_func(F.normalize(Z[1], dim=-1)) + uniform_loss_func(
+                F.normalize(Z[0], dim=-1))) / 2
+            teacher_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1)) + uniform_loss_func(
+                F.normalize(Z_momentum[0], dim=-1))) / 2
+            predictor_entropy = (uniform_loss_func(F.normalize(P[1], dim=-1)) + uniform_loss_func(
+                F.normalize(P[0], dim=-1))) / 2
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
+            "train_z_std_teacher": z_std_teacher,
+            "train_z_std_predictor": z_std_predictor,
+            "train_student_entropy": student_entropy,
+            "train_predictor_entropy": predictor_entropy,
+            "train_teacher_entropy": teacher_entropy
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
