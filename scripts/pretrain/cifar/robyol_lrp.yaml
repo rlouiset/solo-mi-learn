@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-doube-gd-on-pred-sgd0.01-cifar10"
+name: "byol-doube-gd-on-pred-sgd0.001-cifar100"
 method: "robyol_lrp"
 backbone:
   name: "resnet18"
@@ -24,7 +24,7 @@ momentum:
   base_tau: 0.99
   final_tau: 1
 data:
-  dataset: cifar10
+  dataset: cifar100
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
