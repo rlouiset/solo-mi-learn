@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-with-Identity-reg-alpha-beta-on-predictor-cifar10"
+name: "byol-with-Identity-reg-before_normalization-cifar10"
 method: "robyol_lrp"
 backbone:
   name: "resnet18"

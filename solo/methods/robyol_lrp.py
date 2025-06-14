@@ -28,26 +28,6 @@ from solo.losses.byol import byol_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
-class Predictor(nn.Module):
-    def __init__(self, proj_output_dim, pred_hidden_dim):
-        super().__init__()
-
-        # predictor
-        self.predictor_nn = nn.Sequential(
-            nn.Linear(proj_output_dim, pred_hidden_dim),
-            nn.BatchNorm1d(pred_hidden_dim),
-            nn.ReLU(),
-            nn.Linear(pred_hidden_dim, proj_output_dim),
-        )
-
-        self.identity = nn.Identity()
-
-        self.alpha = nn.Parameter(torch.tensor(1.).float().cuda())
-        self.beta = nn.Parameter(torch.tensor(0.).float().cuda())
-
-    def forward(self, z):
-        return self.alpha * self.predictor_nn(z) + self.beta * self.identity(z)
-
 class RoBYOLLRP(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
         """Implements BYOL (https://arxiv.org/abs/2006.07733).
@@ -83,7 +63,12 @@ class RoBYOLLRP(BaseMomentumMethod):
         initialize_momentum_params(self.projector, self.momentum_projector)
 
         # predictor
-        self.predictor = Predictor(proj_output_dim, pred_hidden_dim)
+        self.predictor = nn.Sequential(
+            nn.Linear(proj_output_dim, pred_hidden_dim),
+            nn.BatchNorm1d(pred_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(pred_hidden_dim, proj_output_dim),
+        )
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
@@ -179,11 +164,6 @@ class RoBYOLLRP(BaseMomentumMethod):
         out.update({"z": z})
         return out
 
-    def on_train_batch_end(self, outputs, batch, batch_idx):
-        with torch.no_grad():
-            self.predictor.alpha.data.mul_(self.momentum_updater.cur_tau)
-            self.predictor.beta.data.mul_(self.momentum_updater.cur_tau).add_(1 - self.momentum_updater.cur_tau)
-
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
         """Training step for BYOL reusing BaseMethod training step.
 
@@ -206,7 +186,7 @@ class RoBYOLLRP(BaseMomentumMethod):
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+                neg_cos_sim += byol_loss_func(self.momentum_updater.cur_tau * P[v2] + (1-self.momentum_updater.cur_tau)*Z[v2], Z_momentum[v1])
 
         # calculate std of features
         with torch.no_grad():
