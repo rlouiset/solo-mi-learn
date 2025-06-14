@@ -235,4 +235,4 @@ class RoBYOLLRP(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + class_loss
+        return neg_cos_sim + class_loss + self.au_scale_loss * au_loss
