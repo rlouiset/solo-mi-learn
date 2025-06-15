@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-doube-gd-sgd0.01-0.0001au-cifar100"
+name: "robyol-0.0001antiau-cifar100"
 method: "robyol_lrp"
 backbone:
   name: "resnet18"
