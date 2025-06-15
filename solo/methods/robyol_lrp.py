@@ -75,6 +75,10 @@ class RoBYOLLRP(BaseMomentumMethod):
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
+        self.sim_loss_weight: float = cfg.method_kwargs.sim_loss_weight
+        self.var_loss_weight: float = cfg.method_kwargs.var_loss_weight
+        self.cov_loss_weight: float = cfg.method_kwargs.cov_loss_weight
+
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
         """Adds method specific default values/checks for config.
