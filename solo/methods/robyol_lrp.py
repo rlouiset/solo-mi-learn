@@ -24,10 +24,11 @@ import omegaconf
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from solo.losses import vicreg_loss_func
 from solo.losses.byol import byol_loss_func
 from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
-from solo.utils.lr_scheduler import LinearWarmupCosineAnnealingLR
 from solo.utils.momentum import initialize_momentum_params
 
 class RoBYOLLRP(BaseMomentumMethod):
@@ -92,6 +93,21 @@ class RoBYOLLRP(BaseMomentumMethod):
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.pred_hidden_dim")
 
         return cfg
+
+    def off_diagonal(self, x):
+        """Extracts off-diagonal elements.
+
+        Args:
+            X (torch.Tensor): batch of images in tensor format.
+
+        Returns:
+            torch.Tensor:
+                flattened off-diagonal elements.
+        """
+        n, m = x.shape
+        assert n == m
+        return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
+
 
     @property
     def learnable_params(self) -> List[dict]:
@@ -190,26 +206,51 @@ class RoBYOLLRP(BaseMomentumMethod):
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+                neg_cos_sim += byol_loss_func(self.momentum_updater.cur_tau * F.normalize(P[v2], dim=-1) + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1), Z_momentum[v1])
 
-        # ------- negative cosine similarity loss -------
-        au_loss = 0
-        for v1 in range(self.num_large_crops):
-            for v2 in np.delete(range(self.num_crops), v1):
-                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
-                # au_loss -= align_loss_func(F.normalize(Z[v1].detach(), dim=-1), F.normalize(P[v2], dim=-1))
+
+        # ------- vicreg loss -------
+        vicreg_loss = vicreg_loss_func(
+            Z[0],
+            Z[1],
+            sim_loss_weight=self.sim_loss_weight,
+            var_loss_weight=self.var_loss_weight,
+            cov_loss_weight=self.cov_loss_weight,
+        )
+
+        """# Feature dimension task
+        p1_norm_feat = torch.nn.functional.normalize(Z_momentum[0], dim=0)
+        p2_norm_feat = torch.nn.functional.normalize(Z_momentum[1], dim=0)
+        z1_norm_feat = torch.nn.functional.normalize(Z[0], dim=0)
+        z2_norm_feat = torch.nn.functional.normalize(Z[1], dim=0)
+
+        corr_matrix_1_feat = p1_norm_feat.T @ z2_norm_feat
+        corr_matrix_2_feat = p2_norm_feat.T @ z1_norm_feat
+
+        on_diag_feat = (
+            (
+                torch.diagonal(corr_matrix_1_feat).add(-1).pow(2).mean()
+                + torch.diagonal(corr_matrix_2_feat).add(-1).pow(2).mean()
+            )
+            * 0.5
+        ).sqrt()
+        off_diag_feat = (
+            (
+                self.off_diagonal(corr_matrix_1_feat).pow(2).mean()
+                + self.off_diagonal(corr_matrix_2_feat).pow(2).mean()
+            )
+            * 0.5
+        ).sqrt()
+        feature_loss = (0.5 * on_diag_feat + 0.5 * off_diag_feat) * 10"""
 
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
             z_std_teacher = F.normalize(torch.stack(Z_momentum[: self.num_large_crops]), dim=-1).std(dim=1).mean()
             z_std_predictor = F.normalize(torch.stack(P[: self.num_large_crops]), dim=-1).std(dim=1).mean()
-            student_entropy = (uniform_loss_func(F.normalize(Z[1], dim=-1)) + uniform_loss_func(
-                F.normalize(Z[0], dim=-1))) / 2
-            teacher_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1)) + uniform_loss_func(
-                F.normalize(Z_momentum[0], dim=-1))) / 2
-            predictor_entropy = (uniform_loss_func(F.normalize(P[1], dim=-1)) + uniform_loss_func(
-                F.normalize(P[0], dim=-1))) / 2
+            student_entropy = (uniform_loss_func(F.normalize(Z[1], dim=-1)) + uniform_loss_func(F.normalize(Z[0], dim=-1))) / 2
+            teacher_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1)) + uniform_loss_func(F.normalize(Z_momentum[0], dim=-1))) / 2
+            predictor_entropy = (uniform_loss_func(F.normalize(P[1], dim=-1)) + uniform_loss_func(F.normalize(P[0], dim=-1))) / 2
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
@@ -222,4 +263,4 @@ class RoBYOLLRP(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + class_loss + self.au_scale_loss * au_loss
+        return neg_cos_sim + self.au_scale_loss * vicreg_loss + class_loss # + 0.01 * feature_loss
