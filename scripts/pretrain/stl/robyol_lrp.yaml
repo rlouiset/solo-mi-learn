@@ -11,13 +11,13 @@ hydra:
   run:
     dir: .
 
-name: "robyol-200epochs-0.01vicreg-dim256-stl"
+name: "robyol-200epochs-0.01vicreg-dim2048-stl"
 method: "robyol_lrp"
 backbone:
   name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 4096
-  proj_output_dim: 256
+  proj_output_dim: 2048
   pred_hidden_dim: 4096
   au_scale_loss: 0.01
   sim_loss_weight: 25.0
