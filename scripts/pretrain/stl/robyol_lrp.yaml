@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-200epochs-0.01antiau-detached-stl"
+name: "robyol-200epochs-0.01u-stl"
 method: "robyol_lrp"
 backbone:
   name: "resnet18"
