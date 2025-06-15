@@ -74,7 +74,7 @@ class RoBYOLLRP(BaseMomentumMethod):
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
-        self.optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), 0.001, momentum=0.9)
+        self.optimizer_predictor = torch.optim.SGD(self.predictor.parameters(), 0.01, momentum=0.9)
 
     @staticmethod
     def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
