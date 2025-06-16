@@ -25,7 +25,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
-from solo.losses.robyol import uniform_loss_func, align_loss_func, uniform_loss_exclude_knn
+from solo.losses.robyol import uniform_loss_func, align_loss_func, uniform_loss_exclude_knn, uniform_loss_per_point
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
@@ -195,7 +195,7 @@ class RoBYOL(BaseMomentumMethod):
         au_loss = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                au_loss += uniform_loss_func(F.normalize(Z[v1], dim=-1))
+                au_loss += uniform_loss_per_point(F.normalize(Z[v1], dim=-1))
                 # au_loss += uniform_loss_exclude_knn(F.normalize(Z[v1], dim=-1))
                 au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
 

@@ -68,6 +68,14 @@ def uniform_loss_exclude_knn(x, t=2, k=1):
     return loss
 
 
+def uniform_loss_per_point(x, t=2):
+    # x should be L2-normalized
+    dist_sq = torch.cdist(x, x, p=2).pow(2)  # shape: (N, N)
+    mask = ~torch.eye(x.size(0), dtype=torch.bool, device=x.device)  # exclude i==j
+    dist_sq = dist_sq.masked_select(mask).view(x.size(0), -1)  # shape: (N, N-1)
+    loss = torch.log(torch.exp(-t * dist_sq).sum(dim=1)).mean()
+    return loss
+
 def robyol_loss_func(z1: torch.Tensor, z2: torch.Tensor) -> torch.Tensor:
     """Computes BYOL's loss given batch of predicted features p and projected momentum features z.
 
