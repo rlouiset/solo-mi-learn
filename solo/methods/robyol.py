@@ -195,9 +195,10 @@ class RoBYOL(BaseMomentumMethod):
         au_loss = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                au_loss += uniform_loss_per_point(F.normalize(Z[v1], dim=-1))
-                # au_loss += uniform_loss_exclude_knn(F.normalize(Z[v1], dim=-1))
-                au_loss += align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
+                u_Z = uniform_loss_func(F.normalize(Z[v1], dim=-1))
+                a_Z = align_loss_func(F.normalize(Z[v1], dim=-1), F.normalize(Z[v2], dim=-1))
+                if u_Z > uniform_loss_func(F.normalize(Z_momentum[v1], dim=-1)) or a_Z > align_loss_func(F.normalize(Z_momentum[v1], dim=-1), F.normalize(Z_momentum[v2], dim=-1)):
+                    au_loss += u_Z + a_Z
 
         # calculate std of features
         with torch.no_grad():

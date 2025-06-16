@@ -6,8 +6,8 @@
 #SBATCH --mem 50G
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
-#SBATCH --partition V100
-#SBATCH --output robyol-mc_bs_512_STL10.txt
+#SBATCH --partition A100
+#SBATCH --output robyol_bs_1024_STL10.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
