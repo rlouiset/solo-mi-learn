@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-400epochs-1-selective-align-unif-bs-1024-stl"
+name: "robyol-400epochs-1-align-unif-bs-1024-stl"
 method: "robyol"
 backbone:
   name: "resnet18"
