@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --mem 50G
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 #SBATCH --partition V100
 #SBATCH --output robyol-mc_bs_512_STL10.txt
 
