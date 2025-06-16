@@ -212,41 +212,6 @@ class RoBYOLLRP(BaseMomentumMethod):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(self.momentum_updater.cur_tau * F.normalize(P[v2], dim=-1) + (1-self.momentum_updater.cur_tau) * F.normalize(Z[v2], dim=-1), Z_momentum[v1])
 
-
-        # ------- vicreg loss -------
-        vicreg_loss = vicreg_loss_func(
-            Z[0],
-            Z[1],
-            sim_loss_weight=self.sim_loss_weight,
-            var_loss_weight=self.var_loss_weight,
-            cov_loss_weight=self.cov_loss_weight,
-        )
-
-        """# Feature dimension task
-        p1_norm_feat = torch.nn.functional.normalize(Z_momentum[0], dim=0)
-        p2_norm_feat = torch.nn.functional.normalize(Z_momentum[1], dim=0)
-        z1_norm_feat = torch.nn.functional.normalize(Z[0], dim=0)
-        z2_norm_feat = torch.nn.functional.normalize(Z[1], dim=0)
-
-        corr_matrix_1_feat = p1_norm_feat.T @ z2_norm_feat
-        corr_matrix_2_feat = p2_norm_feat.T @ z1_norm_feat
-
-        on_diag_feat = (
-            (
-                torch.diagonal(corr_matrix_1_feat).add(-1).pow(2).mean()
-                + torch.diagonal(corr_matrix_2_feat).add(-1).pow(2).mean()
-            )
-            * 0.5
-        ).sqrt()
-        off_diag_feat = (
-            (
-                self.off_diagonal(corr_matrix_1_feat).pow(2).mean()
-                + self.off_diagonal(corr_matrix_2_feat).pow(2).mean()
-            )
-            * 0.5
-        ).sqrt()
-        feature_loss = (0.5 * on_diag_feat + 0.5 * off_diag_feat) * 10"""
-
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
@@ -267,4 +232,4 @@ class RoBYOLLRP(BaseMomentumMethod):
         }
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + self.au_scale_loss * vicreg_loss + class_loss # + 0.01 * feature_loss
+        return neg_cos_sim + class_loss # + 0.01 * feature_loss
