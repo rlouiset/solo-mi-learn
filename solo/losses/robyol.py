@@ -23,12 +23,50 @@ import torch.nn.functional as F
 def align_loss_func(x, y, alpha=2):
     return (x - y).norm(p=2, dim=1).pow(alpha).mean()
 
-def entropy_loss_func(x, t=2):
-    return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).mean().log()
-
-def uniform_loss_func(x, t=2): # (query, queue, t=2):
+def uniform_loss_func(x, t=2):
     return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).log().mean()
-    # return torch.einsum("nc,ck->nk", [query, queue]).pow(2).mul(-t).exp().mean(-1).log().mean()
+
+
+import torch
+
+
+def uniform_loss_exclude_knn(x, t=2, k=1):
+    """
+    Uniformity loss with exclusion of k nearest neighbors (and self).
+
+    Args:
+        x: (N, D) tensor of L2-normalized embeddings
+        t: temperature
+        k: number of nearest neighbors to exclude (in addition to self)
+
+    Returns:
+        Scalar uniformity loss
+    """
+    # Compute pairwise squared Euclidean distances
+    dist_sq = torch.cdist(x, x, p=2).pow(2)  # (N, N)
+
+    # Fill diagonal with large value to avoid self
+    dist_sq.fill_diagonal_(float('inf'))
+
+    # Find indices of k nearest neighbors for each sample (excluding self)
+    knn_indices = dist_sq.topk(k, dim=1, largest=False).indices  # shape: (N, k)
+
+    # Create a mask that excludes self and top-k neighbors
+    N = x.size(0)
+    mask = torch.ones_like(dist_sq, dtype=torch.bool)
+    mask.fill_diagonal_(False)  # exclude self
+
+    # Exclude k nearest neighbors
+    row_indices = torch.arange(N).unsqueeze(1).expand(-1, k)  # (N, k)
+    mask[row_indices, knn_indices] = False
+
+    # Apply the mask
+    filtered_dist_sq = dist_sq[mask].view(N, -1)  # shape: (N, N - k - 1)
+
+    # Compute uniformity loss
+    loss = torch.log(torch.exp(-t * filtered_dist_sq).mean())
+    return loss
+
 
 def robyol_loss_func(z1: torch.Tensor, z2: torch.Tensor) -> torch.Tensor:
     """Computes BYOL's loss given batch of predicted features p and projected momentum features z.
