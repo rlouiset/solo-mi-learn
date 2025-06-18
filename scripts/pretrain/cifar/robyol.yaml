@@ -11,10 +11,10 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.0001-align-unif-bs1024-clsflr-0.1-cifar100" # change here for cifar100
+name: "robyol-0.0001-align-unif-r50-bs1024-lr4-0.4-cifar100" # change here for cifar100
 method: "robyol"
 backbone:
-  name: "resnet18"
+  name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
@@ -31,8 +31,8 @@ data:
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 512
-  lr: 2.0
+  batch_size: 1024
+  lr: 4.0
   classifier_lr: 0.4
   weight_decay: 1e-5
   kwargs:
