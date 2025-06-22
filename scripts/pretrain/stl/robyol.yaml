@@ -11,10 +11,10 @@ hydra:
   run:
     dir: .
 
-name: "robyol-400epochs-0.1-align-unif-bs-1024-stl"
+name: "robyol-400epochs-r50-0.1-align-unif-bs-1024-stl"
 method: "robyol"
 backbone:
-  name: "resnet18"
+  name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
