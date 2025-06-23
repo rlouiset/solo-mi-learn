@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "vicreg-400epochs-r50-bs1024-assym-stl10"
+name: "vicreg-400epochs-lr0.3-r50-bs1024-assym-stl10"
 method: "vicreg"
 backbone:
   name: "resnet50"
@@ -30,8 +30,8 @@ data:
 optimizer:
   name: "lars"
   batch_size: 1024
-  lr: 0.6
-  classifier_lr: 0.2
+  lr: 0.3
+  classifier_lr: 0.1
   weight_decay: 1e-4
   kwargs:
     clip_lr: True
