@@ -11,10 +11,10 @@ hydra:
   run:
     dir: .
 
-name: "mocov2plus-stl10" # change here for cifar100
+name: "mocov2plus-400epochs-r50-bs1024-stl10"
 method: "mocov2plus"
 backbone:
-  name: "resnet18"
+  name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 256
@@ -24,14 +24,14 @@ momentum:
   base_tau: 0.99
   final_tau: 0.999
 data:
-  dataset: stl10 # change here for cifar100
+  dataset: stl10
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
   num_workers: 4
 optimizer:
   name: "sgd"
-  batch_size: 512
+  batch_size: 1024
   lr: 0.6
   classifier_lr: 0.6
   weight_decay: 1e-4
@@ -45,7 +45,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 200
+max_epochs: 400
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
