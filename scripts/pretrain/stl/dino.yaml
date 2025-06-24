@@ -20,7 +20,7 @@ method_kwargs:
   proj_output_dim: 256
   num_prototypes: 4096
 momentum:
-  base_tau: 0.9995
+  base_tau: 0.99 # 95
   final_tau: 1.0
 data:
   dataset: stl10
