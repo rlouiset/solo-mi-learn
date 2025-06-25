@@ -11,16 +11,16 @@ hydra:
   run:
     dir: .
 
-name: "simsiam-au-0.1-stl10"
+name: "simsiam-dim256-400epochs-r50-bs1024-stl10"
 method: "simsiam"
 backbone:
-  name: "resnet18"
+  name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 2048
-  pred_hidden_dim: 512
+  pred_hidden_dim: 256
   temperature: 0.2
-  au_scale_loss: 0.1
+  au_scale_loss: 0.0
 data:
   dataset: stl10
   train_path: "./datasets"
@@ -29,7 +29,7 @@ data:
   num_workers: 4
 optimizer:
   name: "sgd"
-  batch_size: 512
+  batch_size: 1024
   lr: 1
   classifier_lr: 0.2
   weight_decay: 1e-5
@@ -43,7 +43,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 200
+max_epochs: 400
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"

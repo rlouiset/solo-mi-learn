@@ -11,10 +11,10 @@ hydra:
   run:
     dir: .
 
-name: "barlow_twins-stl10"
+name: "barlow_twins-r50-bs1024-400epochs-lr0.3-stl10"
 method: "barlow_twins"
 backbone:
-  name: "resnet18"
+  name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 2048
@@ -27,9 +27,9 @@ data:
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 512
-  lr: 0.6
-  classifier_lr: 0.2
+  batch_size: 1024
+  lr: 0.3
+  classifier_lr: 0.1
   weight_decay: 1e-4
   kwargs:
     clip_lr: True
@@ -45,7 +45,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 200
+max_epochs: 400
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
