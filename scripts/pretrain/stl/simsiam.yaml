@@ -18,7 +18,7 @@ backbone:
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 2048
-  pred_hidden_dim: 256
+  pred_hidden_dim: 512
   temperature: 0.2
   au_scale_loss: 0.0
 data:
@@ -30,7 +30,7 @@ data:
 optimizer:
   name: "sgd"
   batch_size: 1024
-  lr: 0.2
+  lr: 1
   classifier_lr: 0.1
   weight_decay: 1e-5
 scheduler:
