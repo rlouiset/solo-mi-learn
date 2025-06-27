@@ -30,7 +30,7 @@ data:
 optimizer:
   name: "sgd"
   batch_size: 1024
-  lr: 0.5
+  lr: 0.2
   classifier_lr: 0.1
   weight_decay: 1e-5
 scheduler:
