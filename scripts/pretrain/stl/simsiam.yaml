@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "rosiam-dim256-lr0.1-400epochs-r50-bs1024-stl10"
+name: "rosiam-dim256-lr0.01-400epochs-r50-bs1024-stl10"
 method: "simsiam"
 backbone:
   name: "resnet50"
@@ -20,7 +20,7 @@ method_kwargs:
   proj_output_dim: 2048
   pred_hidden_dim: 512
   temperature: 0.2
-  au_scale_loss: 0.1
+  au_scale_loss: 0.01
 data:
   dataset: stl10
   train_path: "./datasets"
