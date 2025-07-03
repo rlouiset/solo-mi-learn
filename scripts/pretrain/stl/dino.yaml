@@ -16,11 +16,11 @@ method: "dino"
 backbone:
   name: "resnet50"
 method_kwargs:
-  proj_hidden_dim: 2048
+  proj_hidden_dim: 4096
   proj_output_dim: 256
-  num_prototypes: 4096
+  num_prototypes: 1024
 momentum:
-  base_tau: 0.99 # 95
+  base_tau: 0.996
   final_tau: 1.0
 data:
   dataset: stl10
@@ -31,7 +31,7 @@ data:
 optimizer:
   name: "lars"
   batch_size: 1024
-  lr: 0.6
+  lr: 0.3
   classifier_lr: 0.2
   weight_decay: 1e-6
   kwargs:
