@@ -19,7 +19,7 @@ method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 256
   num_prototypes: 2048
-  teacher_temperature: 0.04
+  # teacher_temperature: 0.04
 momentum:
   base_tau: 0.996
   final_tau: 1
