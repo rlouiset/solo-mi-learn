@@ -11,14 +11,14 @@ hydra:
   run:
     dir: .
 
-name: "dino-400epochs-adamw-bs-1024-r50-latdim512-nprototypes2048-teacher-temp-0.4-tau0.996-to-1-stl10"
+name: "dino-400epochs-adamw-bs-1024-r50-nprototypes512-teacher-temp-0.4-tau0.996-to-1-stl10"
 method: "dino"
 backbone:
   name: "resnet50"
 method_kwargs:
   proj_hidden_dim: 2048
-  proj_output_dim: 512 # 256
-  num_prototypes: 2048
+  proj_output_dim: 256
+  num_prototypes: 512
   teacher_temperature: 0.04
 momentum:
   base_tau: 0.996
