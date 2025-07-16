@@ -1,0 +1,67 @@
+Sat Mar  8 08:13:40 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 555.42.06              Driver Version: 555.42.06      CUDA Version: 12.5     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA L40S                    Off |   00000000:02:00.0 Off |                    0 |
+| N/A   27C    P8             32W /  350W |       1MiB /  46068MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA L40S                    Off |   00000000:82:00.0 Off |                    0 |
+| N/A   26C    P8             32W /  350W |       1MiB /  46068MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA L40S                    Off |   00000000:E3:00.0 Off |                    0 |
+| N/A   26C    P8             33W /  350W |       1MiB /  46068MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+/home/ids/rareme/miniconda3/lib/python3.12/site-packages/timm/models/helpers.py:7: FutureWarning: Importing from timm.models.helpers is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/home/ids/rareme/miniconda3/lib/python3.12/site-packages/timm/optim/optim_factory.py:7: FutureWarning: Importing from timm.optim.optim_factory is deprecated, please import via timm.optim
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.optim", FutureWarning)
+/home/ids/rareme/miniconda3/lib/python3.12/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/home/ids/rareme/solo-mi-learn/solo/backbones/convnext/convnext.py:26: UserWarning: Overwriting convnext_tiny in registry with solo.backbones.convnext.convnext.convnext_tiny. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/home/ids/rareme/solo-mi-learn/solo/backbones/convnext/convnext.py:33: UserWarning: Overwriting convnext_small in registry with solo.backbones.convnext.convnext.convnext_small. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/home/ids/rareme/solo-mi-learn/solo/backbones/convnext/convnext.py:40: UserWarning: Overwriting convnext_base in registry with solo.backbones.convnext.convnext.convnext_base. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/home/ids/rareme/solo-mi-learn/solo/backbones/convnext/convnext.py:47: UserWarning: Overwriting convnext_large in registry with solo.backbones.convnext.convnext.convnext_large. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/home/ids/rareme/miniconda3/lib/python3.12/site-packages/timm/models/layers/__init__.py:48: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/home/ids/rareme/solo-mi-learn/solo/backbones/poolformer/poolformer.py:421: UserWarning: Overwriting poolformer_s12 in registry with solo.backbones.poolformer.poolformer.poolformer_s12. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/home/ids/rareme/solo-mi-learn/solo/backbones/poolformer/poolformer.py:446: UserWarning: Overwriting poolformer_s24 in registry with solo.backbones.poolformer.poolformer.poolformer_s24. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/home/ids/rareme/solo-mi-learn/solo/backbones/poolformer/poolformer.py:467: UserWarning: Overwriting poolformer_s36 in registry with solo.backbones.poolformer.poolformer.poolformer_s36. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/home/ids/rareme/solo-mi-learn/solo/backbones/poolformer/poolformer.py:489: UserWarning: Overwriting poolformer_m36 in registry with solo.backbones.poolformer.poolformer.poolformer_m36. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/home/ids/rareme/solo-mi-learn/solo/backbones/poolformer/poolformer.py:511: UserWarning: Overwriting poolformer_m48 in registry with solo.backbones.poolformer.poolformer.poolformer_m48. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/home/ids/rareme/solo-mi-learn/solo/utils/whitening.py:43: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @custom_fwd(cast_inputs=torch.float32)
+/home/ids/rareme/solo-mi-learn/solo/utils/whitening.py:220: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @custom_fwd(cast_inputs=torch.float32)
+Cannot find primary config 'simsiam_vit.yaml'. Check that it's in your config search path.
+
+Config search path:
+	provider=hydra, path=pkg://hydra.conf
+	provider=main, path=file:///home/ids/rareme/solo-mi-learn/scripts/pretrain/imagenet-100-multicrop
+	provider=schema, path=structured://
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
+srun: error: node50: task 0: Exited with exit code 1
