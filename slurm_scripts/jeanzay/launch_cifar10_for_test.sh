@@ -7,6 +7,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --constraint a100
+#SBATCH --account haj@a100
 #SBATCH --output byol.txt
 
 module purge # purge modules inherited by default
