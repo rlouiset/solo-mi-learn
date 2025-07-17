@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --job-name byol
-#SBATCH --time=00-23:59:00
+#SBATCH --time=00-19:59:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
