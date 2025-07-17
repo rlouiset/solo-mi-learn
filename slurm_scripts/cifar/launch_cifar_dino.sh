@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --partition A40
-#SBATCH --output dino_bs_512_CIFAR100.txt
+#SBATCH --output dino_bs_512_CIFAR10.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
