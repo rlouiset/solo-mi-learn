@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "dino-adamw-bs-1024-r50-nprototypes1024-teacher-temp-0.4-tau0.996-to-1-cifar100" # change here for cifar100
+name: "dino-adamw-bs-1024-r50-nprototypes1024-teacher-temp-0.4-tau0.996-to-1-cifar10" # change here for cifar100
 method: "dino"
 backbone:
   name: "resnet18"
@@ -24,7 +24,7 @@ momentum:
   base_tau: 0.996
   final_tau: 1.0
 data:
-  dataset: cifar100 # change here for cifar100
+  dataset: cifar10 # change here for cifar100
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
