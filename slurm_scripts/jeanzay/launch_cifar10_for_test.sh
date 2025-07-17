@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
-#SBATCH --account uik24xv@v100
+#SBATCH --constraint a100
 #SBATCH --output byol.txt
 
 module purge # purge modules inherited by default
