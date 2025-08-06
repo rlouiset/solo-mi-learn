@@ -11,10 +11,10 @@ hydra:
   run:
     dir: .
 
-name: "byol-bs-1024-r50-lr1-cifar10" # change here for cifar100
+name: "byol-bs-512-cifar10" # change here for cifar100
 method: "byol"
 backbone:
-  name: "resnet50"
+  name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
@@ -30,9 +30,9 @@ data:
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 1024
-  lr: 1.0
-  classifier_lr: 0.1
+  batch_size: 512
+  lr: 2.0
+  classifier_lr: 0.2
   weight_decay: 1e-5
   kwargs:
     clip_lr: True
@@ -48,7 +48,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 1000
+max_epochs: 400
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
