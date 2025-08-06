@@ -25,6 +25,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from solo.losses.byol import byol_loss_func
+from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
@@ -192,11 +193,38 @@ class BYOL(BaseMomentumMethod):
         # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+            z_std_teacher = F.normalize(torch.stack(Z_momentum[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+            z_std_predictor = F.normalize(torch.stack(P[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+
+            student_entropy = (uniform_loss_func(F.normalize(Z[1], dim=-1)) + uniform_loss_func(F.normalize(Z[0], dim=-1))) / 2
+            teacher_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1)) + uniform_loss_func(F.normalize(Z_momentum[0], dim=-1))) / 2
+            predictor_entropy = (uniform_loss_func(F.normalize(P[1], dim=-1)) + uniform_loss_func(F.normalize(P[0], dim=-1))) / 2
+
+            student_alignment = align_loss_func(F.normalize(Z[0], dim=-1), F.normalize(Z[1], dim=-1))
+            teacher_alignment = align_loss_func(F.normalize(Z_momentum[0], dim=-1), F.normalize(Z_momentum[1], dim=-1))
+            predictor_alignment = align_loss_func(F.normalize(P[0], dim=-1), F.normalize(P[1], dim=-1))
+
+            residual_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)) +
+                                uniform_loss_func(F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[0], dim=-1))) / 2
+            residual_std = ((F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)).std(dim=1).mean() +
+                            (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[0], dim=-1))).std(dim=1).mean() / 2
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
+            "train_z_std_teacher": z_std_teacher,
+            "train_z_std_predictor": z_std_predictor,
+            "train_student_entropy": student_entropy,
+            "train_predictor_entropy": predictor_entropy,
+            "train_teacher_entropy": teacher_entropy,
+            "train_student_alignment": student_alignment,
+            "train_predictor_alignment": predictor_alignment,
+            "train_teacher_alignment": teacher_alignment,
+            "residual_entropy": residual_entropy,
+            "residual_std": residual_std
+
         }
+
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
         return neg_cos_sim + class_loss
