@@ -657,7 +657,7 @@ class BaseMomentumMethod(BaseMethod):
         if self.backbone_name.startswith("resnet"):
             # remove fc layer
             self.momentum_backbone.fc = nn.Identity()
-            cifar = cfg.data.dataset in ["cifar10", "cifar100", "BloodMNIST"]
+            cifar = cfg.data.dataset in ["cifar10", "cifar100"] # "BloodMNIST"
             if cifar:
                 self.momentum_backbone.conv1 = nn.Conv2d(
                     3, 64, kernel_size=3, stride=1, padding=2, bias=False
