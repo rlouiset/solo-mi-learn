@@ -1,5 +1,5 @@
 # Copyright 2023 solo-learn development team.
-
+import math
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
 # the Software without restriction, including without limitation the rights to use,
@@ -204,6 +204,11 @@ class BYOL(BaseMomentumMethod):
             teacher_alignment = align_loss_func(F.normalize(Z_momentum[0], dim=-1), F.normalize(Z_momentum[1], dim=-1))
             predictor_alignment = align_loss_func(F.normalize(P[0], dim=-1), F.normalize(P[1], dim=-1))
 
+            norm1 = torch.linalg.norm(F.normalize(Z[0], dim=-1), F.normalize(Z[1], dim=-1), dim=1)
+            norm2 = torch.linalg.norm(F.normalize(Z_momentum[0], dim=-1), F.normalize(Z_momentum[1], dim=-1), dim=1)
+
+            student_teacher_pearson_corr = ((norm1 - norm1.mean()) @ (norm2 - norm2.mean())) / (torch.norm(norm1 - norm1.mean()) * torch.norm(norm2 - norm2.mean()))
+
             residual_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)) +
                                 uniform_loss_func(F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[0], dim=-1))) / 2
             residual_std = ((F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)).std(dim=1).mean() +
@@ -221,8 +226,8 @@ class BYOL(BaseMomentumMethod):
             "train_predictor_alignment": predictor_alignment,
             "train_teacher_alignment": teacher_alignment,
             "residual_entropy": residual_entropy,
-            "residual_std": residual_std
-
+            "residual_std": residual_std,
+            "rho": student_teacher_pearson_corr
         }
 
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
