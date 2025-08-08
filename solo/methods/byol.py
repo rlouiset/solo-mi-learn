@@ -204,8 +204,8 @@ class BYOL(BaseMomentumMethod):
             teacher_alignment = align_loss_func(F.normalize(Z_momentum[0], dim=-1), F.normalize(Z_momentum[1], dim=-1))
             predictor_alignment = align_loss_func(F.normalize(P[0], dim=-1), F.normalize(P[1], dim=-1))
 
-            norm1 = torch.linalg.norm(F.normalize(Z[0], dim=-1), F.normalize(Z[1], dim=-1), dim=1)
-            norm2 = torch.linalg.norm(F.normalize(Z_momentum[0], dim=-1), F.normalize(Z_momentum[1], dim=-1), dim=1)
+            norm1 = torch.linalg.norm(F.normalize(Z[0], dim=-1) - F.normalize(Z[1], dim=-1), dim=1)
+            norm2 = torch.linalg.norm(F.normalize(Z_momentum[0], dim=-1) - F.normalize(Z_momentum[1], dim=-1), dim=1)
 
             student_teacher_pearson_corr = ((norm1 - norm1.mean()) @ (norm2 - norm2.mean())) / (torch.norm(norm1 - norm1.mean()) * torch.norm(norm2 - norm2.mean()))
 
