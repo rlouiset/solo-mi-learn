@@ -255,7 +255,7 @@ def prepare_datasets(
             split="train",
             download=True,
             transform=T_train,
-            size=28
+            size=128
         )
 
         DatasetClass = vars(medmnist)[dataset]
@@ -264,7 +264,7 @@ def prepare_datasets(
             split="test",
             download=download,
             transform=T_val,
-            size=28
+            size=128
         )
         """for i in range(len(val_dataset)):
             val_dataset[i][1][0] = val_dataset[i][1][0].astype(np.float16)"""
