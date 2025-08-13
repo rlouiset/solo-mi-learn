@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-tau-0.99-bs512-path128-5layers"
+name: "byol-tau-0.99-bs512-path128-3layers"
 method: "byol"
 backbone:
   name: "resnet18"
