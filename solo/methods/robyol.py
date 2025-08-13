@@ -70,6 +70,9 @@ class RoBYOL(BaseMomentumMethod):
             nn.Linear(proj_output_dim, pred_hidden_dim),
             nn.BatchNorm1d(pred_hidden_dim),
             nn.ReLU(),
+            nn.Linear(pred_hidden_dim, pred_hidden_dim),
+            nn.BatchNorm1d(pred_hidden_dim),
+            nn.ReLU(),
             nn.Linear(pred_hidden_dim, proj_output_dim),
         )
 
