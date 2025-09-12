@@ -26,7 +26,6 @@ def align_loss_func(x, y, alpha=2):
 def uniform_loss_func(x, t=2):
     return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean(-1).log().mean()
 
-
 def robyol_loss_func(z1: torch.Tensor, z2: torch.Tensor) -> torch.Tensor:
     """Computes BYOL's loss given batch of predicted features p and projected momentum features z.
 
