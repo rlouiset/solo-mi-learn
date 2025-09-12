@@ -14,11 +14,11 @@ hydra:
 name: "dino-400epochs-adamw-bs-1024-r50-nprototypes512-teacher-temp-0.4-tau0.996-to-1-stl10"
 method: "dino"
 backbone:
-  name: "resnet50"
+  name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 256
-  num_prototypes: 512
+  num_prototypes: 1024
   teacher_temperature: 0.04
 momentum:
   base_tau: 0.996
@@ -31,7 +31,7 @@ data:
   num_workers: 4
 optimizer:
   name: "adamw"
-  batch_size: 1024
+  batch_size: 512
   lr: 0.0005
   classifier_lr: 1e-4
   weight_decay: 0.04
@@ -45,7 +45,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 400
+max_epochs: 200
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
