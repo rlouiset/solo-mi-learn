@@ -29,15 +29,11 @@ data:
   format: "image_folder"
   num_workers: 4
 optimizer:
-  name: "lars"
-  batch_size: 256 # 512
-  lr: 0.3
-  classifier_lr: 0.1
-  weight_decay: 1e-6
-  kwargs:
-    clip_lr: True
-    eta: 0.02
-    exclude_bias_n_norm: True
+  name: "adamw"
+  batch_size: 512
+  lr: 0.0005
+  classifier_lr: 1e-4
+  weight_decay: 0.04
 scheduler:
   name: "warmup_cosine"
 checkpoint:
@@ -49,7 +45,7 @@ auto_resume:
 
 # overwrite PL stuff
 max_epochs: 200
-devices: [0, 1]
+devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
 strategy: "ddp"
