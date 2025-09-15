@@ -1,5 +1,6 @@
 defaults:
   - _self_
+  - augmentations: derma.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -10,55 +11,24 @@ hydra:
   run:
     dir: .
 
-name: "vicreg-path128"
-method: "vicreg"
+name: "barlow_twins-lr0.1-weak-da-derma128"
+method: "barlow_twins"
 backbone:
   name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 2048
-  sim_loss_weight: 25.0
-  var_loss_weight: 25.0
-  cov_loss_weight: 1.0
+  scale_loss: 0.1
 data:
-  dataset: PathMNIST
+  dataset: DermaMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
   num_workers: 4
-augmentations:
-  - rrc:
-      enabled: True
-      crop_min_scale: 0.2
-      crop_max_scale: 1.0
-    color_jitter:
-      enabled: True
-      brightness: 0.4
-      contrast: 0.4
-      saturation: 0.2
-      hue: 0.1
-      prob: 0.8
-    grayscale:
-      enabled: True
-      prob: 0.2
-    gaussian_blur:
-      enabled: False
-      prob: 0.0
-    solarization:
-      enabled: False
-      prob: 0.0
-    equalization:
-      enabled: False
-      prob: 0.0
-    horizontal_flip:
-      enabled: True
-      prob: 0.5
-    crop_size: 128
-    num_crops: 2
 optimizer:
   name: "lars"
   batch_size: 512
-  lr: 0.3
+  lr: 0.1
   classifier_lr: 0.1
   weight_decay: 1e-4
   kwargs:
