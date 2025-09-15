@@ -209,13 +209,29 @@ class RoBYOL(BaseMomentumMethod):
                 au_loss += u_Z + a_Z
 
         # calculate std of features
+        # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
             z_std_teacher = F.normalize(torch.stack(Z_momentum[: self.num_large_crops]), dim=-1).std(dim=1).mean()
             z_std_predictor = F.normalize(torch.stack(P[: self.num_large_crops]), dim=-1).std(dim=1).mean()
+
             student_entropy = (uniform_loss_func(F.normalize(Z[1], dim=-1)) + uniform_loss_func(F.normalize(Z[0], dim=-1))) / 2
             teacher_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1)) + uniform_loss_func(F.normalize(Z_momentum[0], dim=-1))) / 2
             predictor_entropy = (uniform_loss_func(F.normalize(P[1], dim=-1)) + uniform_loss_func(F.normalize(P[0], dim=-1))) / 2
+
+            student_alignment = align_loss_func(F.normalize(Z[0], dim=-1), F.normalize(Z[1], dim=-1))
+            teacher_alignment = align_loss_func(F.normalize(Z_momentum[0], dim=-1), F.normalize(Z_momentum[1], dim=-1))
+            predictor_alignment = align_loss_func(F.normalize(P[0], dim=-1), F.normalize(P[1], dim=-1))
+
+            norm1 = torch.linalg.norm(F.normalize(Z[0], dim=-1) - F.normalize(Z[1], dim=-1), dim=1)
+            norm2 = torch.linalg.norm(F.normalize(Z_momentum[0], dim=-1) - F.normalize(Z_momentum[1], dim=-1), dim=1)
+
+            student_teacher_pearson_corr = ((norm1 - norm1.mean()) @ (norm2 - norm2.mean())) / (torch.norm(norm1 - norm1.mean()) * torch.norm(norm2 - norm2.mean()))
+
+            residual_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)) +
+                                uniform_loss_func(F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[0], dim=-1))) / 2
+            residual_std = ((F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)).std(dim=1).mean() +
+                            (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[0], dim=-1))).std(dim=1).mean() / 2
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
@@ -224,8 +240,15 @@ class RoBYOL(BaseMomentumMethod):
             "train_z_std_predictor": z_std_predictor,
             "train_student_entropy": student_entropy,
             "train_predictor_entropy": predictor_entropy,
-            "train_teacher_entropy": teacher_entropy
+            "train_teacher_entropy": teacher_entropy,
+            "train_student_alignment": student_alignment,
+            "train_predictor_alignment": predictor_alignment,
+            "train_teacher_alignment": teacher_alignment,
+            "residual_entropy": residual_entropy,
+            "residual_std": residual_std,
+            "rho": student_teacher_pearson_corr
         }
+
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss # + 0.01 * feature_loss
+        return neg_cos_sim + self.au_scale_loss * au_loss + class_loss
