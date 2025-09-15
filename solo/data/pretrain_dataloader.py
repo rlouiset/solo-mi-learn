@@ -237,12 +237,15 @@ def build_transform_pipeline(dataset, cfg):
         )
 
 
-    if cfg.random_rotation.prob:
-        augmentations.append(
-            transforms.RandomRotation(
-                cfg.random_rotation.degrees
-            ),
-        )
+    try:
+        if cfg.random_rotation.prob:
+            augmentations.append(
+                transforms.RandomRotation(
+                    cfg.random_rotation.degrees
+                ),
+            )
+    except:
+        print("No Random Rotation detected")
 
     if cfg.color_jitter.prob:
         augmentations.append(
@@ -275,10 +278,13 @@ def build_transform_pipeline(dataset, cfg):
         augmentations.append(transforms.RandomHorizontalFlip(p=cfg.horizontal_flip.prob))
 
     augmentations.append(transforms.ToTensor())
-    if cfg.normalize.custom:
-        augmentations.append(NormalizeBW())
-    else:
-        augmentations.append(transforms.Normalize(mean=mean, std=std))
+    try:
+        if cfg.normalize.custom:
+            augmentations.append(NormalizeBW())
+        else:
+            augmentations.append(transforms.Normalize(mean=mean, std=std))
+    except:
+        print("No Custom Normalization detected")
 
     augmentations = transforms.Compose(augmentations)
     return augmentations
