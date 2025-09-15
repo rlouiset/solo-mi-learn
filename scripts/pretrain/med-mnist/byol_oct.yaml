@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-tau-0.99-bs512-oct128"
+name: "byol-tau-0.99-bs512-lr0.2-weak-da-oct128"
 method: "byol"
 backbone:
   name: "resnet18"
@@ -31,7 +31,7 @@ data:
 optimizer:
   name: "lars"
   batch_size: 512
-  lr: 1.0
+  lr: 0.2
   classifier_lr: 0.1
   weight_decay: 1e-5
   kwargs:

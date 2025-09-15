@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "barlow_twins-oct128"
+name: "barlow_twins-lr0.1-weak-da-oct128"
 method: "barlow_twins"
 backbone:
   name: "resnet18"
@@ -28,7 +28,7 @@ data:
 optimizer:
   name: "lars"
   batch_size: 512
-  lr: 0.3
+  lr: 0.1
   classifier_lr: 0.1
   weight_decay: 1e-4
   kwargs:
