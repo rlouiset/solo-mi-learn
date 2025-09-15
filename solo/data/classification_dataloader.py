@@ -115,7 +115,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
     dermamnist_pipeline = {
         "T_train": transforms.Compose(
             [
-                transforms.RandomResizedCrop(28, scale=(0.6, 1)),
+                transforms.RandomResizedCrop(128, scale=(0.2, 1)),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)], p=0.8),
                 transforms.RandomGrayscale(p=0.2),
@@ -127,6 +127,24 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
             [
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4823, 0.4466), (0.247, 0.243, 0.261)),
+            ]
+        ),
+    }
+
+    octmnist_pipeline = {
+        "T_train": transforms.Compose(
+            [
+                transforms.RandomRotation(degrees=15),
+                transforms.RandomResizedCrop(128, scale=(0.2, 1)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                NormalizeBW(),
+            ]
+        ),
+        "T_val": transforms.Compose(
+            [
+                transforms.ToTensor(),
+                NormalizeBW(),
             ]
         ),
     }
@@ -176,6 +194,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         "BloodMNIST": medmnist_pipeline,
         "PathMNIST": medmnist_pipeline,
         "DermaMNIST": dermamnist_pipeline,
+        "OCTMNIST": octmnist_pipeline,
         "TissueMNIST": medmnist_pipeline,
         "stl10": stl_pipeline,
         "imagenet100": imagenet_pipeline,
@@ -230,7 +249,7 @@ def prepare_datasets(
         val_data_path = sandbox_folder / "datasets"
 
     assert dataset in ["cifar10", "cifar100", "stl10", "imagenet", "imagenet100", "custom",
-                       "BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST"]
+                       "BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST", "OCTMNIST"]
 
     if dataset in ["cifar10", "cifar100"]:
         DatasetClass = vars(torchvision.datasets)[dataset.upper()]
@@ -248,7 +267,7 @@ def prepare_datasets(
             transform=T_val,
         )
 
-    elif dataset in ["BloodMNIST", "PathMNIST"]:
+    elif dataset in ["BloodMNIST", "PathMNIST", "OCTMNIST", "DermaMNIST", "TissueMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = DatasetClass(
             root=train_data_path,
@@ -266,8 +285,6 @@ def prepare_datasets(
             transform=T_val,
             size=128
         )
-        """for i in range(len(val_dataset)):
-            val_dataset[i][1][0] = val_dataset[i][1][0].astype(np.float16)"""
 
     elif dataset == "stl10":
         train_dataset = STL10(
@@ -404,3 +421,14 @@ def prepare_data(
         num_workers=num_workers,
     )
     return train_loader, val_loader
+
+class NormalizeBW():
+    def __init__(self):
+        self.min = 0
+        self.max = 1
+
+    def __call__(self, img):
+        img = img - img.min()
+        img = img / img.max()
+        img = img.repeat(3, 1, 1)
+        return img
