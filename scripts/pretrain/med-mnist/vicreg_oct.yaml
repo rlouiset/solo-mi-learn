@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: symmetric.yaml
+  - augmentations: oct.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,16 +11,18 @@ hydra:
   run:
     dir: .
 
-name: "barlow_twins-blood128"
-method: "barlow_twins"
+name: "vicreg-oct"
+method: "vicreg"
 backbone:
   name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 2048
-  scale_loss: 0.1
+  sim_loss_weight: 25.0
+  var_loss_weight: 25.0
+  cov_loss_weight: 1.0
 data:
-  dataset: BloodMNIST
+  dataset: OCTMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"

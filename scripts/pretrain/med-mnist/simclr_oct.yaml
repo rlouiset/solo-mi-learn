@@ -11,10 +11,10 @@ hydra:
   run:
     dir: .
 
-name: "simclr-oct"
+name: "simclr-oct128"
 method: "simclr"
 backbone:
-  name: "densenet121"
+  name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 256
