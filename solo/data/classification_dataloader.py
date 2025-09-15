@@ -134,8 +134,8 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
     octmnist_pipeline = {
         "T_train": transforms.Compose(
             [
-                transforms.RandomRotation(degrees=15),
-                transforms.RandomResizedCrop(128, scale=(0.2, 1)),
+                transforms.RandomRotation(degrees=5),
+                transforms.RandomResizedCrop(128, scale=(0.9, 1)),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 NormalizeBW(),
@@ -148,6 +148,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
             ]
         ),
     }
+
 
     stl_pipeline = {
         "T_train": transforms.Compose(
