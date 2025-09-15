@@ -11,14 +11,14 @@ hydra:
   run:
     dir: .
 
-name: "mocov2plus-big-queue-derma128"
+name: "mocov2plus-big-queue-derma-aug-derma128"
 method: "mocov2plus"
 backbone:
   name: "resnet18"
 method_kwargs:
   proj_hidden_dim: 2048
   proj_output_dim: 256
-  queue_size: 32768
+  queue_size: 4096
   temperature: 0.2
 momentum:
   base_tau: 0.99
