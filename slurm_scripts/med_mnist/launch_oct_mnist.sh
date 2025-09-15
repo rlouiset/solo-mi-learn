@@ -13,6 +13,6 @@
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
 srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name dino_oct.yaml
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name mocov2plus_oct.yaml
 srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name simclr_oct.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name simsiam_oct.yaml
 
