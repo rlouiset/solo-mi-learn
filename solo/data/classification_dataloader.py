@@ -115,9 +115,8 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
     dermamnist_pipeline = {
         "T_train": transforms.Compose(
             [
-                transforms.RandomResizedCrop(128, scale=(0.2, 1)),
+                transforms.RandomResizedCrop(128, scale=(0.9, 1)),
                 transforms.RandomHorizontalFlip(),
-                transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.2, 0.1)], p=0.8),
                 transforms.RandomGrayscale(p=0.2),
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4823, 0.4466), (0.247, 0.243, 0.261)),

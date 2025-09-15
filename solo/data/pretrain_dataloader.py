@@ -284,6 +284,7 @@ def build_transform_pipeline(dataset, cfg):
         else:
             augmentations.append(transforms.Normalize(mean=mean, std=std))
     except:
+        augmentations.append(transforms.Normalize(mean=mean, std=std))
         print("No Custom Normalization detected")
 
     augmentations = transforms.Compose(augmentations)
