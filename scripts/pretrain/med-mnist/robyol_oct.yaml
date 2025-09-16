@@ -12,7 +12,7 @@ hydra:
     dir: .
 
 name: "robyol-tau-0.99-0.1au-bs512-oct128"
-method: "ràbyol"
+method: "robyol"
 backbone:
   name: "resnet18"
 method_kwargs:
