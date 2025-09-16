@@ -11,8 +11,8 @@ hydra:
   run:
     dir: .
 
-name: "byol-tau-0.99-bs512-oct128"
-method: "byol"
+name: "robyol-tau-0.99-0.1au-bs512-oct128"
+method: "ràbyol"
 backbone:
   name: "resnet18"
 method_kwargs:

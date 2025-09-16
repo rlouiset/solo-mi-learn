@@ -20,7 +20,7 @@ method_kwargs:
   proj_output_dim: 2048
   pred_hidden_dim: 512
   temperature: 0.2
-  au_scale_loss: 0.1
+  au_scale_loss: 0.0
 data:
   dataset: DermaMNIST
   train_path: "./datasets"
