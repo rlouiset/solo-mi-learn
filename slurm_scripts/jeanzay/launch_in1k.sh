@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
+#SBATCH --constraint=internet
 #SBATCH --constraint h100
 #SBATCH --account haj@h100
 #SBATCH --output byol_in1k.txt
