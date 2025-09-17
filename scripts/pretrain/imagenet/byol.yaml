@@ -52,6 +52,6 @@ max_epochs: 100
 devices: [0, 1, 2, 3]
 sync_batchnorm: True
 accelerator: "gpu"
-strategy: "nccl"
+strategy: "ddp"
 precision: 16-mixed
 # accumulate_grad_batches: 16
