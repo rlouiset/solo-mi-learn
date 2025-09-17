@@ -923,6 +923,9 @@ class BaseMomentumMethod(BaseMethod):
                 self.validation_step_outputs, "momentum_val_acc5", "batch_size"
             )
 
+            print("")
+            print("Val Acc1", val_acc1)
+
             log = {
                 "momentum_val_loss": val_loss,
                 "momentum_val_acc1": val_acc1,
