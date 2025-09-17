@@ -13,9 +13,6 @@
 
 # Set environment variables for optimal DDP and data loading
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK       # for CPU operations / numpy
-export NCCL_DEBUG=INFO                             # to check DDP communication
-export PYTHONFAULTHANDLER=1
-export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 module purge # purge modules inherited by default
 conda deactivate # deactivate environments inherited by default
