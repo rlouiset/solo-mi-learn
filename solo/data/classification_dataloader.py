@@ -252,20 +252,36 @@ def prepare_datasets(
                        "BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST", "OCTMNIST"]
 
     if dataset in ["cifar10", "cifar100"]:
-        DatasetClass = vars(torchvision.datasets)[dataset.upper()]
-        train_dataset = DatasetClass(
-            train_data_path,
-            train=True,
-            download=download,
-            transform=T_train,
-        )
-
-        val_dataset = DatasetClass(
-            val_data_path,
-            train=False,
-            download=download,
-            transform=T_val,
-        )
+        try:
+            DatasetClass = vars(torchvision.datasets)[dataset.upper()]
+            train_dataset = DatasetClass(
+                train_data_path,
+                train=True,
+                download=download,
+                transform=T_train,
+            )
+            val_dataset = DatasetClass(
+                val_data_path,
+                train=False,
+                download=download,
+                transform=T_val,
+            )
+        except:
+            DatasetClass = vars(torchvision.datasets)[dataset.upper()]
+            train_dataset = DatasetClass(
+                train_data_path,
+                root="/lustre/fswork/<your_project>/datasets/"+dataset,
+                train=True,
+                download=False,
+                transform=T_train,
+            )
+            val_dataset = DatasetClass(
+                val_data_path,
+                root="/lustre/fswork/<your_project>/datasets/"+dataset,
+                train=False,
+                download=False,
+                transform=T_val,
+            )
 
     elif dataset in ["BloodMNIST", "PathMNIST", "OCTMNIST", "DermaMNIST", "TissueMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
