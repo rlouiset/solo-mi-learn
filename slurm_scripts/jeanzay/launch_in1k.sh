@@ -1,14 +1,13 @@
 #!/bin/bash
 
 #SBATCH --job-name byol_in1k
-#SBATCH --time=0-23:59:00
+#SBATCH --time=0-19:59:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --constraint h100
 #SBATCH --account haj@h100
-#SBATCH --qos=qos_gpu-t4 # QoS
 #SBATCH --output byol_in1k.txt
 
 module purge # purge modules inherited by default
