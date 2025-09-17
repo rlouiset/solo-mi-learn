@@ -343,12 +343,20 @@ def prepare_datasets(
 
     if dataset in ["cifar10", "cifar100"]:
         DatasetClass = vars(torchvision.datasets)[dataset.upper()]
-        train_dataset = dataset_with_index(DatasetClass)(
-            train_data_path,
-            train=True,
-            download=download,
-            transform=transform,
-        )
+        try:
+            train_dataset = dataset_with_index(DatasetClass)(
+                train_data_path,
+                train=True,
+                download=download,
+                transform=transform,
+            )
+        except:
+            train_dataset = dataset_with_index(DatasetClass)(
+                root="/lustre/fswork/projects/rech/haj/uik24xv/local/"+dataset,
+                train=True,
+                download=download,
+                transform=transform,
+            )
 
     elif dataset in ["BloodMNIST", "PathMNIST", "DermaMNIST", "OCTMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
