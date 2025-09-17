@@ -8,7 +8,7 @@
 #SBATCH --gpus-per-node=1
 #SBATCH --constraint h100
 #SBATCH --account haj@h100
-#SBATCH --qos=qos_gpu-dev # QoS
+#SBATCH --qos=qos_gpu-t4 # QoS
 #SBATCH --output byol_in1k.txt
 
 module purge # purge modules inherited by default
