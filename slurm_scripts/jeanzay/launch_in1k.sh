@@ -1,14 +1,14 @@
 #!/bin/bash
 
-#SBATCH --job-name byol
+#SBATCH --job-name byol_in1k
 #SBATCH --time=0-23:59:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
-#SBATCH --constraint v100
-#SBATCH --account haj@v100
-#SBATCH --output byol.txt
+#SBATCH --constraint h100
+#SBATCH --account haj@h100
+#SBATCH --output byol_in1k.txt
 
 module purge # purge modules inherited by default
 conda deactivate # deactivate environments inherited by default
