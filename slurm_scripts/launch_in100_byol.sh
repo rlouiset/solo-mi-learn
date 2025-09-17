@@ -4,7 +4,7 @@
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 100G
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:2
 #SBATCH --partition A100
 #SBATCH --output robyol_A100_IN100.txt

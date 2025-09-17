@@ -3,7 +3,7 @@
 #SBATCH --job-name byol_in1k
 #SBATCH --time=0-19:59:00
 #SBATCH --nodes=1
-# SBATCH --cpus-per-task=64               # increase CPU cores for data loading
+# SBATCH --cpus-per-task=16               # increase CPU cores for data loading
 #SBATCH --gres=gpu:4
 #SBATCH --gpus-per-node=4
 #SBATCH --constraint=internet

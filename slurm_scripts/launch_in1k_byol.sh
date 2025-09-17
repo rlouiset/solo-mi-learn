@@ -3,7 +3,7 @@
 #SBATCH --job-name byol_512_H100_IN1K
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
-#SBATCH --mem 200G
+#SBATCH --mem 300G
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --partition H100
