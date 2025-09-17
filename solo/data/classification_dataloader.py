@@ -270,14 +270,14 @@ def prepare_datasets(
             DatasetClass = vars(torchvision.datasets)[dataset.upper()]
             train_dataset = DatasetClass(
                 train_data_path,
-                root="/lustre/fswork/<your_project>/datasets/"+dataset,
+                root="/lustre/fswork/projects/rech/haj/uik24xv/local/"+dataset,
                 train=True,
                 download=False,
                 transform=T_train,
             )
             val_dataset = DatasetClass(
                 val_data_path,
-                root="/lustre/fswork/<your_project>/datasets/"+dataset,
+                root="/lustre/fswork/projects/rech/haj/uik24xv/local/"+dataset,
                 train=False,
                 download=False,
                 transform=T_val,
