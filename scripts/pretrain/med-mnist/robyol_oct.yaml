@@ -19,7 +19,7 @@ method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
   pred_hidden_dim: 4096
-  au_scale_loss: 1
+  au_scale_loss: 10
 momentum:
   base_tau: 0.99
   final_tau: 0.99
