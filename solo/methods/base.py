@@ -588,12 +588,6 @@ class BaseMethod(pl.LightningModule):
                 targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
         out = self.base_validation_step(X, targets)
 
-        """try:
-            out = self.base_validation_step(X, targets)
-        except:
-            print(targets)
-            out = {"loss":0, "acc1": 0, "acc5": 0}"""
-
         if self.knn_eval and not self.trainer.sanity_checking:
             self.knn(test_features=out.pop("feats").detach(), test_targets=targets.detach())
 
@@ -618,6 +612,12 @@ class BaseMethod(pl.LightningModule):
         val_acc5 = weighted_mean(self.validation_step_outputs, "val_acc5", "batch_size")
 
         log = {"val_loss": val_loss, "val_acc1": val_acc1, "val_acc5": val_acc5}
+
+        print("")
+        print("")
+        print("Val Acc1", val_acc1)
+        print("")
+        print("")
 
         if self.knn_eval and not self.trainer.sanity_checking:
             val_knn_acc1, val_knn_acc5 = self.knn.compute()
@@ -905,6 +905,12 @@ class BaseMomentumMethod(BaseMethod):
 
         log = {"val_loss": val_loss, "val_acc1": val_acc1, "val_acc5": val_acc5}
 
+        print("")
+        print("")
+        print("Val Acc1", val_acc1)
+        print("")
+        print("")
+
         if self.knn_eval and not self.trainer.sanity_checking:
             val_knn_acc1, val_knn_acc5 = self.knn.compute()
             log.update({"val_knn_acc1": val_knn_acc1, "val_knn_acc5": val_knn_acc5})
@@ -922,9 +928,6 @@ class BaseMomentumMethod(BaseMethod):
             val_acc5 = weighted_mean(
                 self.validation_step_outputs, "momentum_val_acc5", "batch_size"
             )
-
-            print("")
-            print("Val Acc1", val_acc1)
 
             log = {
                 "momentum_val_loss": val_loss,

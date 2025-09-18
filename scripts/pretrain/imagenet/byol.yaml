@@ -27,7 +27,7 @@ data:
   train_path: "/lustre/fswork/dataset/imagenet/train" # "/projects/common/imagenet/ILSVRC/Data/CLS-LOC/train"
   val_path: "/lustre/fswork/dataset/imagenet/val" # "/projects/common/imagenet/ILSVRC/Data/CLS-LOC/test"
   format: "dali"
-  num_workers: 4
+  num_workers: 16
 optimizer:
   name: "lars"
   batch_size: 512
