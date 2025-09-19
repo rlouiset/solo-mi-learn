@@ -228,10 +228,10 @@ class RoBYOL(BaseMomentumMethod):
 
             student_teacher_pearson_corr = ((norm1 - norm1.mean()) @ (norm2 - norm2.mean())) / (torch.norm(norm1 - norm1.mean()) * torch.norm(norm2 - norm2.mean()))
 
-            residual_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)) +
-                                uniform_loss_func(F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[0], dim=-1))) / 2
-            residual_std = ((F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)).std(dim=1).mean() +
-                            (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[0], dim=-1))).std(dim=1).mean() / 2
+            residual_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)) +
+                                uniform_loss_func(F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1))) / 2
+            residual_std = ((F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)).std(dim=1).mean() +
+                            (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1))).std(dim=1).mean() / 2
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
