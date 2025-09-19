@@ -58,6 +58,7 @@ from solo.utils.metrics import accuracy_at_k, weighted_mean
 from solo.utils.misc import omegaconf_select, remove_bias_and_norm_from_weight_decay
 from solo.utils.momentum import MomentumUpdater, initialize_momentum_params
 
+
 def static_lr(
     get_lr: Callable,
     param_group_indexes: Sequence[int],
@@ -194,7 +195,7 @@ class BaseMethod(pl.LightningModule):
             self.features_dim: int = self.backbone.inplanes
             # remove fc layer
             self.backbone.fc = nn.Identity()
-            cifar = cfg.data.dataset in ["cifar10", "cifar100"] #  "BloodMNIST"
+            cifar = cfg.data.dataset in ["cifar10", "cifar100"]
             if cifar:
                 self.backbone.conv1 = nn.Conv2d(
                     3, 64, kernel_size=3, stride=1, padding=2, bias=False
@@ -468,10 +469,7 @@ class BaseMethod(pl.LightningModule):
         loss = F.cross_entropy(logits, targets, ignore_index=-1)
         # handle when the number of classes is smaller than 5
         top_k_max = min(5, logits.size(1))
-        try:
-            acc1, acc5 = accuracy_at_k(logits, targets, top_k=(1, top_k_max))
-        except:
-            acc1, acc5 = accuracy_at_k(logits, targets.argmax(1), top_k=(1, top_k_max))
+        acc1, acc5 = accuracy_at_k(logits, targets, top_k=(1, top_k_max))
 
         out.update({"loss": loss, "acc1": acc1, "acc5": acc5})
         return out
@@ -488,9 +486,6 @@ class BaseMethod(pl.LightningModule):
         Returns:
             Dict: dict containing the classification loss, logits, features, acc@1 and acc@5.
         """
-        if len(targets.shape) > 1:
-            if targets.size(1) == 1:
-                targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
 
         return self._base_shared_step(X, targets)
 
@@ -557,6 +552,7 @@ class BaseMethod(pl.LightningModule):
         Returns:
             Dict: dict containing the classification loss, logits, features, acc@1 and acc@5.
         """
+
         return self._base_shared_step(X, targets)
 
     def validation_step(
@@ -583,9 +579,6 @@ class BaseMethod(pl.LightningModule):
         X, targets = batch
         batch_size = targets.size(0)
 
-        if len(targets.shape) > 1:
-            if targets.size(1) == 1:
-                targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
         out = self.base_validation_step(X, targets)
 
         if self.knn_eval and not self.trainer.sanity_checking:
@@ -612,12 +605,6 @@ class BaseMethod(pl.LightningModule):
         val_acc5 = weighted_mean(self.validation_step_outputs, "val_acc5", "batch_size")
 
         log = {"val_loss": val_loss, "val_acc1": val_acc1, "val_acc5": val_acc5}
-
-        print("")
-        print("")
-        print("Val Acc1", val_acc1)
-        print("")
-        print("")
 
         if self.knn_eval and not self.trainer.sanity_checking:
             val_knn_acc1, val_knn_acc5 = self.knn.compute()
@@ -657,7 +644,7 @@ class BaseMomentumMethod(BaseMethod):
         if self.backbone_name.startswith("resnet"):
             # remove fc layer
             self.momentum_backbone.fc = nn.Identity()
-            cifar = cfg.data.dataset in ["cifar10", "cifar100"] # "BloodMNIST"
+            cifar = cfg.data.dataset in ["cifar10", "cifar100"]
             if cifar:
                 self.momentum_backbone.conv1 = nn.Conv2d(
                     3, 64, kernel_size=3, stride=1, padding=2, bias=False
@@ -835,7 +822,7 @@ class BaseMomentumMethod(BaseMethod):
             batch_idx (int): index of the batch.
         """
 
-        if (self.trainer.global_step) > self.last_step:
+        if self.trainer.global_step > self.last_step:
             # update momentum backbone and projector
             momentum_pairs = self.momentum_pairs
             for mp in momentum_pairs:
@@ -847,7 +834,7 @@ class BaseMomentumMethod(BaseMethod):
                 cur_step=self.trainer.global_step,
                 max_steps=self.trainer.estimated_stepping_batches,
             )
-        self.last_step = (self.trainer.global_step)
+        self.last_step = self.trainer.global_step
 
     def validation_step(
         self,
@@ -904,12 +891,6 @@ class BaseMomentumMethod(BaseMethod):
         val_acc5 = weighted_mean(self.validation_step_outputs, "val_acc5", "batch_size")
 
         log = {"val_loss": val_loss, "val_acc1": val_acc1, "val_acc5": val_acc5}
-
-        print("")
-        print("")
-        print("Val Acc1", val_acc1)
-        print("")
-        print("")
 
         if self.knn_eval and not self.trainer.sanity_checking:
             val_knn_acc1, val_knn_acc5 = self.knn.compute()
