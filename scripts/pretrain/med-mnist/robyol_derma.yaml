@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-tau-0.99to0.999-bs512-0.1au-derma-aug-derma128"
+name: "robyol-tau-0.99to0.999-bs512-0.1au-derma-2-layers-derma128"
 method: "robyol"
 backbone:
   name: "resnet18"
