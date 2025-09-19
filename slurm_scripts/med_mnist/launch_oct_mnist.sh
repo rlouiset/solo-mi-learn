@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name mocov2plus_bs_512_octmnist
+#SBATCH --job-name byol_bs_512_octmnist
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 80G
@@ -8,9 +8,9 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --partition V100
-#SBATCH --output mocov2plus_bs_512_octmnist.txt
+#SBATCH --output byol_bs_512_octmnist.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name mocov2plus_oct.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name byol_oct.yaml
 
