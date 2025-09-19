@@ -195,6 +195,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         "PathMNIST": medmnist_pipeline,
         "DermaMNIST": dermamnist_pipeline,
         "OCTMNIST": octmnist_pipeline,
+        "OrganAMNIST": octmnist_pipeline,
         "TissueMNIST": medmnist_pipeline,
         "stl10": stl_pipeline,
         "imagenet100": imagenet_pipeline,
@@ -249,7 +250,7 @@ def prepare_datasets(
         val_data_path = sandbox_folder / "datasets"
 
     assert dataset in ["cifar10", "cifar100", "stl10", "imagenet", "imagenet100", "custom",
-                       "BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST", "OCTMNIST"]
+                       "BloodMNIST", "PathMNIST", "DermaMNIST", "TissueMNIST", "OCTMNIST", "OrganAMNIST"]
 
     if dataset in ["cifar10", "cifar100"]:
         try:
@@ -281,7 +282,7 @@ def prepare_datasets(
                 transform=T_val,
             )
 
-    elif dataset in ["BloodMNIST", "PathMNIST", "OCTMNIST", "DermaMNIST", "TissueMNIST"]:
+    elif dataset in ["BloodMNIST", "PathMNIST", "OCTMNIST", "DermaMNIST", "OrganAMNIST", "TissueMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = DatasetClass(
             root=train_data_path,
