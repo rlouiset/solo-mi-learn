@@ -200,7 +200,6 @@ class RoBYOL(BaseMomentumMethod):
                 au_loss += u_Z + a_Z
 
         # calculate std of features
-        # calculate std of features
         with torch.no_grad():
             z_std = F.normalize(torch.stack(Z[: self.num_large_crops]), dim=-1).std(dim=1).mean()
             z_std_teacher = F.normalize(torch.stack(Z_momentum[: self.num_large_crops]), dim=-1).std(dim=1).mean()
