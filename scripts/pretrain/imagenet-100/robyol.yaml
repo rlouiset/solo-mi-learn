@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.01-align-unif-vicreg-da-weight-decay-1e-4-in100"
+name: "robyol-0.01-align-unif-vicreg-da-weight-decay-1e-6-in100"
 method: "robyol"
 backbone:
   name: "resnet50"
@@ -34,7 +34,7 @@ optimizer:
   batch_size: 256
   lr: 1
   classifier_lr: 0.2
-  weight_decay: 1e-4
+  weight_decay: 1e-6
   kwargs:
     clip_lr: True
     eta: 0.02
