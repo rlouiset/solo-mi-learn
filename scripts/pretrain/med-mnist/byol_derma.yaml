@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: oct.yaml
+  - augmentations: derma.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -23,7 +23,7 @@ momentum:
   base_tau: 0.99
   final_tau: 0.99
 data:
-  dataset: OrganAMNIST
+  dataset: DermaMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
