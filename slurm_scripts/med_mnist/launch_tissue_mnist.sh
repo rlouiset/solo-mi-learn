@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name robyol_bs_512_octmnist
+#SBATCH --job-name robyol_bs_512_tissuemnist
 #SBATCH --time=00-23:59:00
 #SBATCH --nodes=1
 #SBATCH --mem 80G
@@ -8,9 +8,9 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --partition V100
-#SBATCH --output robyol_bs_512_octmnist.txt
+#SBATCH --output robyol_bs_512_tissuemnist.txt
 
 export PATH=/home/ids/rareme/miniconda3/bin:$PATH
 source activate base
-srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name robyol_organ.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/med-mnist/ --config-name robyol_tissue.yaml
 

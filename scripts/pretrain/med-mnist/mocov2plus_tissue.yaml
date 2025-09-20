@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - augmentations: oct.yaml
+  - augmentations: tissue.yaml
   - wandb: private.yaml
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "mocov2plus-big-queue-crop-0.4-oct128"
+name: "mocov2plus-big-queue-tissue128"
 method: "mocov2plus"
 backbone:
   name: "resnet18"
@@ -24,7 +24,7 @@ momentum:
   base_tau: 0.99
   final_tau: 0.999
 data:
-  dataset: OCTMNIST
+  dataset: TissueMNIST
   train_path: "./datasets"
   val_path: "./datasets"
   format: "image_folder"
