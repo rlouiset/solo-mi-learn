@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-0.01-align-unif-vicreg-da-wdecay1e-5-in100"
+name: "robyol-0.01-align-unif-vicreg-da-wdecay1e-6-in100"
 method: "robyol"
 backbone:
   name: "resnet50"
