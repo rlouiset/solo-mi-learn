@@ -133,8 +133,8 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
     octmnist_pipeline = {
         "T_train": transforms.Compose(
             [
-                transforms.RandomRotation(degrees=5),
-                transforms.RandomResizedCrop(128, scale=(0.9, 1)),
+                transforms.RandomRotation(degrees=25),
+                transforms.RandomResizedCrop(128, scale=(0.4, 1)),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 NormalizeBW(),
@@ -196,7 +196,7 @@ def prepare_transforms(dataset: str) -> Tuple[nn.Module, nn.Module]:
         "DermaMNIST": dermamnist_pipeline,
         "OCTMNIST": octmnist_pipeline,
         "OrganAMNIST": octmnist_pipeline,
-        "TissueMNIST": medmnist_pipeline,
+        "TissueMNIST": octmnist_pipeline,
         "stl10": stl_pipeline,
         "imagenet100": imagenet_pipeline,
         "imagenet": imagenet_pipeline,
