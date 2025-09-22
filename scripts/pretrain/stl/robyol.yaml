@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-400epochs-lr1-r50-track-bs-512-stl"
+name: "byol-400epochs-0.1au-r50-track-bs-512-stl"
 method: "robyol"
 backbone:
   name: "resnet50"
@@ -19,7 +19,7 @@ method_kwargs:
   proj_hidden_dim: 4096
   proj_output_dim: 256
   pred_hidden_dim: 4096
-  au_scale_loss: 1
+  au_scale_loss: 0.1
 momentum:
   base_tau: 0.99
   final_tau: 1
