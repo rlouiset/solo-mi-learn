@@ -11,14 +11,14 @@ hydra:
   run:
     dir: .
 
-name: "robyol_0.5-align-unif-projdim2048-blood128"
+name: "robyol_0.5-align-unif-track-blood128"
 method: "robyol"
 backbone:
   name: "resnet18"
 method_kwargs:
-  proj_hidden_dim: 2048 # 4096
+  proj_hidden_dim: 4096
   proj_output_dim: 256
-  pred_hidden_dim: 2048 # 4096
+  pred_hidden_dim: 4096
   au_scale_loss: 0.5
 momentum:
   base_tau: 0.99
@@ -31,9 +31,9 @@ data:
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 256 # 512
-  lr: 1.0
-  classifier_lr: 0.1
+  batch_size: 512
+  lr: 2.0
+  classifier_lr: 0.2
   weight_decay: 1e-5
   kwargs:
     clip_lr: True
@@ -50,7 +50,7 @@ auto_resume:
 
 # overwrite PL stuff
 max_epochs: 200
-devices: [0, 1]
+devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
 strategy: "ddp"
