@@ -236,7 +236,6 @@ def build_transform_pipeline(dataset, cfg):
             ),
         )
 
-
     try:
         if cfg.random_rotation.prob:
             augmentations.append(
@@ -283,7 +282,6 @@ def build_transform_pipeline(dataset, cfg):
             augmentations.append(NormalizeBW())
         else:
             augmentations.append(transforms.Normalize(mean=mean, std=std))
-            print("No Custom Normalization detected !")
     except:
         augmentations.append(transforms.Normalize(mean=mean, std=std))
         print("No Custom Normalization detected")
