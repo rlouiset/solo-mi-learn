@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol_0.01-align-unif-track-0.99tau-path128"
+name: "robyol_0.01-align-unif-repro-0.99tau-path128"
 method: "robyol"
 backbone:
   name: "resnet18"
