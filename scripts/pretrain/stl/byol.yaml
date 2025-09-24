@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-stl-3layers"
+name: "byol-stl-2layers"
 method: "byol"
 backbone:
   name: "resnet18"

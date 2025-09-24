@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-bs-512-cifar10-2layers" # change here for cifar100
+name: "byol-bs-512-cifar10-track-2layers" # change here for cifar100
 method: "byol"
 backbone:
   name: "resnet18"

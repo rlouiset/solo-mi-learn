@@ -207,12 +207,15 @@ class BYOL(BaseMomentumMethod):
             norm1 = torch.linalg.norm(F.normalize(Z[0], dim=-1) - F.normalize(Z[1], dim=-1), dim=1)
             norm2 = torch.linalg.norm(F.normalize(Z_momentum[0], dim=-1) - F.normalize(Z_momentum[1], dim=-1), dim=1)
 
-            student_teacher_pearson_corr = ((norm1 - norm1.mean()) @ (norm2 - norm2.mean())) / (torch.norm(norm1 - norm1.mean()) * torch.norm(norm2 - norm2.mean()))
+            student_teacher_pearson_corr_x = ((norm1 - norm1.mean()) @ (norm2 - norm2.mean())) / (torch.norm(norm1 - norm1.mean()) * torch.norm(norm2 - norm2.mean()))
 
-            residual_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)) +
-                                uniform_loss_func(F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[0], dim=-1))) / 2
-            residual_std = ((F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[1], dim=-1)).std(dim=1).mean() +
-                            (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[0], dim=-1))).std(dim=1).mean() / 2
+            student_teacher_pearson_corr = (estimate_rho_isotropic(F.normalize(Z[0], dim=-1), F.normalize(Z_momentum[1], dim=-1)) +
+                                            estimate_rho_isotropic(F.normalize(Z[1], dim=-1), F.normalize(Z_momentum[0], dim=-1)))/2
+
+            residual_entropy = (uniform_loss_func(F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)) +
+                                uniform_loss_func(F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1))) / 2
+            residual_std = ((F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)).std(dim=1).mean() +
+                            (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1))).std(dim=1).mean() / 2
 
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
@@ -227,9 +230,31 @@ class BYOL(BaseMomentumMethod):
             "train_teacher_alignment": teacher_alignment,
             "residual_entropy": residual_entropy,
             "residual_std": residual_std,
+            "rho_x": student_teacher_pearson_corr_x,
             "rho": student_teacher_pearson_corr
         }
 
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
         return neg_cos_sim + class_loss
+
+def estimate_rho_isotropic(X, Y, unbiased=True):
+    # X, Y: tensors of shape [B, d]
+    B, d = X.shape
+    dd = float(B - 1) if unbiased else float(B)
+
+    x_mean = X.mean(dim=0, keepdim=True)    # [1, d]
+    y_mean = Y.mean(dim=0, keepdim=True)
+
+    Xc = X - x_mean      # [B, d]
+    Yc = Y - y_mean
+
+    # trace of cross-covariance (sum over elementwise products)
+    tr_Sxy = (Xc * Yc).sum() / dd   # scalar
+
+    # per-dimension marginal variances (averaged across dims)
+    sigma_x2 = (Xc.pow(2).sum() / dd) / d
+    sigma_y2 = (Yc.pow(2).sum() / dd) / d
+
+    rho_hat = tr_Sxy / (d * torch.sqrt(sigma_x2 * sigma_y2))
+    return rho_hat.item()
