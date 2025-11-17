@@ -514,8 +514,6 @@ class BaseMethod(pl.LightningModule):
         # check that we received the desired number of crops
         assert len(X) == self.num_crops
 
-        print("TRAIN TARGETS", targets.shape)
-
         outs = [self.base_training_step(x, targets) for x in X[: self.num_large_crops]]
         outs = {k: [out[k] for out in outs] for k in outs[0].keys()}
 
@@ -588,7 +586,7 @@ class BaseMethod(pl.LightningModule):
         if len(targets.shape) > 1:
             if targets.size(1) == 1:
                 targets = torch.nn.functional.one_hot(targets[:, 0], num_classes=self.num_classes).float()
-        print("VAL TARGETS", targets.shape)
+
         out = self.base_validation_step(X, targets)
 
         """try:
