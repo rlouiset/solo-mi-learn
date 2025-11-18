@@ -27,10 +27,10 @@ data:
   train_path: "/lustre/fsn1/projects/rech/haj/uik24xv/train" # "/projects/common/imagenet/ILSVRC/Data/CLS-LOC/train"
   val_path: "/lustre/fsn1/projects/rech/haj/uik24xv/val" # "/projects/common/imagenet/ILSVRC/Data/CLS-LOC/test"
   format: "dali"
-  num_workers: 16
+  num_workers: 32
 optimizer:
   name: "lars"
-  batch_size: 512
+  batch_size: 1024
   lr: 0.1
   classifier_lr: 0.05
   weight_decay: 1e-6
