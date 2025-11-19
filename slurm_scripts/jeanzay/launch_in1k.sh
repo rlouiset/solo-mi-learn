@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --job-name byol_in1k
-#SBATCH --time=0-19:59:59
+#SBATCH --time=0-19:59:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=32               # increase CPU cores for data loading
 #SBATCH --gres=gpu:2
