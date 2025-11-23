@@ -620,7 +620,9 @@ class BaseMethod(pl.LightningModule):
 
         log = {"val_loss": val_loss, "val_acc1": val_acc1, "val_acc5": val_acc5}
 
-        print(log)
+        print(" ")
+        print("VAL ACC 1 : ", val_acc1)
+        print(" ")
 
         if self.knn_eval and not self.trainer.sanity_checking:
             val_knn_acc1, val_knn_acc5 = self.knn.compute()
