@@ -28,7 +28,7 @@ data:
   train_path: "/lustre/fsn1/projects/rech/haj/uik24xv/train" # "/projects/common/imagenet/ILSVRC/Data/CLS-LOC/train"
   val_path: "/lustre/fsn1/projects/rech/haj/uik24xv/val" # "/projects/common/imagenet/ILSVRC/Data/CLS-LOC/test"
   format: "dali"
-  num_workers: 24
+  num_workers: 6
 optimizer:
   name: "lars"
   batch_size: 512
@@ -46,11 +46,11 @@ checkpoint:
   dir: "trained_models"
   frequency: 1
 auto_resume:
-  enabled: False
+  enabled: True
 
 # overwrite PL stuff
 max_epochs: 100
-devices: [0, 1, 2, 3]
+devices: 4
 sync_batchnorm: True
 accelerator: "gpu"
 strategy: "ddp"
