@@ -258,8 +258,8 @@ class BYOL(BaseMomentumMethod):
             "residual_std": residual_std,
             "rho_x": student_teacher_pearson_corr_x,
             "rho": student_teacher_pearson_corr,
-            "shapiro": (shapiro_pvals_0 + shapiro_pvals_1) / 2,
-            "dagostino": (dagostino_pvals_0 + dagostino_pvals_1) / 2,
+            "shapiro": (np.mean(shapiro_pvals_0) + np.mean(shapiro_pvals_1)) / 2,
+            "dagostino": (np.mean(dagostino_pvals_0) + np.mean(dagostino_pvals_1)) / 2,
             "interpolation_check": interpolation_check,
         }
 
