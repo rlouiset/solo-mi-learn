@@ -218,21 +218,30 @@ class BYOL(BaseMomentumMethod):
             residual_std = ((F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)).std(dim=1).mean() +
                             (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1))).std(dim=1).mean() / 2
 
-            # residuals of normalized representations
+            # computing residuals of normalized representations
             residuals_0 = (F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)).cpu().numpy()
-            residuals_1 = (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1)).cpu().numpy()
+            # Gaussianity of residuals
+            _, p_value_0_residuals, _ = pg.multivariate_normality(residuals_0, alpha=0.05)
+            cov = np.cov(residuals_0, rowvar=False)
+            eigvals = np.linalg.eigvalsh(cov)
+            isotropy_ratio_0_residuals = eigvals.max() / eigvals.min()
 
-            stat_0, p_value_0, _ = pg.multivariate_normality(residuals_0, alpha=0.05)
-            stat_1, p_value_1, _ = pg.multivariate_normality(residuals_1, alpha=0.05)
+            # Gaussianity of students
+            students_0 = Z[0].cpu().numpy()
+            _, p_value_0_student, _ = pg.multivariate_normality(students_0, alpha=0.05)
+            cov = np.cov(students_0, rowvar=False)
+            eigvals = np.linalg.eigvalsh(cov)
+            isotropy_ratio_0_student = eigvals.max() / eigvals.min()
 
-            # Covariance matrix
-            cov_0 = np.cov(residuals_0, rowvar=False)
-            eigvals_0 = np.linalg.eigvalsh(cov_0)
-            isotropy_ratio_0 = eigvals_0.max() / eigvals_0.min()
+            # Gaussianity of teachers
+            teachers_0 = Z_momentum[0].cpu().numpy()
+            _, p_value_0_teacher, _ = pg.multivariate_normality(teachers_0, alpha=0.05)
+            cov = np.cov(teachers_0, rowvar=False)
+            eigvals = np.linalg.eigvalsh(cov)
+            isotropy_ratio_0_teacher = eigvals.max() / eigvals.min()
 
-            cov_1 = np.cov(residuals_1, rowvar=False)
-            eigvals_1 = np.linalg.eigvalsh(cov_1)
-            isotropy_ratio_1 = eigvals_1.max() / eigvals_1.min()
+            # cross-cov between residuals and students
+            cross_cov = cross_covariance_norm(F.normalize(students_0, dim=-1), residuals_0)
 
             # TODO: Interpolate backbone and projector
             interpolated_backbone = interpolate_network(self.backbone, self.momentum_backbone, 0.99)
@@ -267,9 +276,14 @@ class BYOL(BaseMomentumMethod):
             "residual_std": residual_std,
             "rho_x": student_teacher_pearson_corr_x,
             "rho": student_teacher_pearson_corr,
-            "mardia": (p_value_0 + p_value_1) / 2,
-            "isotropy_ratio": (isotropy_ratio_0 + isotropy_ratio_1) / 2,
+            "hz_test_residuals": p_value_0_residuals,
+            "isotropy_ratio_residuals": isotropy_ratio_0_residuals,
+            "hz_test_student": p_value_0_student,
+            "isotropy_ratio_student": isotropy_ratio_0_student,
+            "hz_test_teacher": p_value_0_teacher,
+            "isotropy_ratio_teacher": isotropy_ratio_0_teacher,
             "interpolation_check": interpolation_check,
+            "cross_cov": cross_cov
         }
 
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
@@ -345,3 +359,9 @@ def interpolate_network(online_net: torch.nn.Module, momentum_net: torch.nn.Modu
                                          online_net.parameters()):
         p_interp.data = tau * p_mom.data + (1 - tau) * p_online.data
     return interpolated_net
+
+def cross_covariance_norm(Z, R):
+    Zc = Z - Z.mean(0, keepdims=True)
+    Rc = R - R.mean(0, keepdims=True)
+    C = (Zc.T @ Rc) / (Z.shape[0] - 1)
+    return np.linalg.norm(C, ord='fro')
