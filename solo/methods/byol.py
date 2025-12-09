@@ -1,4 +1,5 @@
 # Copyright 2023 solo-learn development team.
+import copy
 import math
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -217,6 +218,31 @@ class BYOL(BaseMomentumMethod):
             residual_std = ((F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)).std(dim=1).mean() +
                             (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1))).std(dim=1).mean() / 2
 
+            # residuals of normalized representations
+            residuals_0 = F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)
+            residuals_1 = F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1)
+
+            shapiro_pvals_0, dagostino_pvals_0 = test_gaussianity_random_projections(residuals_0)
+            shapiro_pvals_1, dagostino_pvals_1 = test_gaussianity_random_projections(residuals_1)
+
+            # TODO: Interpolate backbone and projector
+            interpolated_backbone = interpolate_network(self.backbone, self.momentum_backbone, 0.99)
+            interpolated_projector = interpolate_network(self.projector, self.momentum_projector, 0.99)
+
+            # Pick a large crop to test
+            X_crop = batch[1][0]  # first crop in the batch
+            feats_interp = interpolated_backbone(X_crop)  # forward through interpolated backbone
+            Z_interp_net = interpolated_projector(feats_interp)  # forward through interpolated projector
+            Z_interp_net = F.normalize(Z_interp_net, dim=-1)
+
+            # Weighted sum of original outputs
+            # Assume Z_momentum[0] and Z[0] correspond to this crop
+            Z_weighted = 0.99 * F.normalize(Z_momentum[0], dim=-1) + (1 - 0.99) * F.normalize(Z[0], dim=-1)
+
+            # Compute difference
+            interpolation_diff = torch.norm(Z_interp_net - Z_weighted, dim=1)  # shape: [batch_size]
+            interpolation_check = interpolation_diff.mean().item()  # scalar metric
+
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
@@ -231,7 +257,10 @@ class BYOL(BaseMomentumMethod):
             "residual_entropy": residual_entropy,
             "residual_std": residual_std,
             "rho_x": student_teacher_pearson_corr_x,
-            "rho": student_teacher_pearson_corr
+            "rho": student_teacher_pearson_corr,
+            "shapiro": (shapiro_pvals_0 + shapiro_pvals_1) / 2,
+            "dagostino": (dagostino_pvals_0 + dagostino_pvals_1) / 2,
+            "interpolation_check": interpolation_check,
         }
 
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
@@ -258,3 +287,52 @@ def estimate_rho_isotropic(X, Y, unbiased=True):
 
     rho_hat = tr_Sxy / (d * torch.sqrt(sigma_x2 * sigma_y2))
     return rho_hat.item()
+
+from scipy.stats import shapiro, normaltest
+
+def test_gaussianity_random_projections(residuals, num_projections=50):
+    """
+    Test Gaussianity of high-dimensional residuals via random projections.
+
+    Args:
+        residuals: torch.Tensor of shape (n_samples, d)
+        num_projections: number of random projections to test
+    Returns:
+        List of p-values for Shapiro-Wilk and D'Agostino tests
+    """
+    residuals_np = residuals.detach().cpu().numpy()
+    n_samples, d = residuals_np.shape
+
+    shapiro_pvals = []
+    dagostino_pvals = []
+
+    for _ in range(num_projections):
+        # Random unit vector
+        v = np.random.randn(d)
+        v /= np.linalg.norm(v)
+
+        # Project residuals
+        proj = residuals_np @ v  # shape: (n_samples,)
+
+        # Shapiro-Wilk test
+        _, p_sw = shapiro(proj)
+        shapiro_pvals.append(p_sw)
+
+        # D'Agostino K2 test
+        _, p_k2 = normaltest(proj)
+        dagostino_pvals.append(p_k2)
+
+    return np.array(shapiro_pvals), np.array(dagostino_pvals)
+
+@torch.no_grad()
+def interpolate_network(online_net: torch.nn.Module, momentum_net: torch.nn.Module, tau: float):
+    """
+    Returns a new network whose parameters are interpolated:
+        tau * momentum_net + (1 - tau) * online_net
+    """
+    interpolated_net = copy.deepcopy(momentum_net)
+    for p_interp, p_mom, p_online in zip(interpolated_net.parameters(),
+                                         momentum_net.parameters(),
+                                         online_net.parameters()):
+        p_interp.data = tau * p_mom.data + (1 - tau) * p_online.data
+    return interpolated_net
