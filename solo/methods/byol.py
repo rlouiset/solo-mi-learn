@@ -20,6 +20,8 @@ import math
 
 from typing import Any, Dict, List, Sequence, Tuple
 import pingouin as pg
+import dcor
+
 import numpy as np
 import omegaconf
 import torch
@@ -242,6 +244,10 @@ class BYOL(BaseMomentumMethod):
 
             # cross-cov between residuals and students
             cross_cov = cross_covariance_norm(F.normalize(Z[0], dim=-1).cpu().numpy(), residuals_0)
+            stat = dcor.distance_covariance(F.normalize(Z[0], dim=-1).cpu().numpy(), residuals_0)
+            pval = dcor.independence.distance_covariance_test(
+                F.normalize(Z[0], dim=-1).cpu().numpy(), residuals_0, num_resamples=200
+            ).p_value
 
             # TODO: Interpolate backbone and projector
             interpolated_backbone = interpolate_network(self.backbone, self.momentum_backbone, 0.99)
@@ -283,7 +289,7 @@ class BYOL(BaseMomentumMethod):
             "hz_test_teacher": p_value_0_teacher,
             "isotropy_ratio_teacher": isotropy_ratio_0_teacher,
             "interpolation_check": interpolation_check,
-            "cross_cov": cross_cov
+            "cross_cov_pval": pval
         }
 
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
