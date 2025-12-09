@@ -222,8 +222,8 @@ class BYOL(BaseMomentumMethod):
             residuals_0 = F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)
             residuals_1 = F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1)
 
-            stat_0, p_value_0 = pg.multivariate_normality(residuals_0, alpha=0.05, method='mardia')
-            stat_1, p_value_1 = pg.multivariate_normality(residuals_1, alpha=0.05, method='mardia')
+            stat_0, p_value_0 = pg.multivariate_normality(residuals_0, alpha=0.05)
+            stat_1, p_value_1 = pg.multivariate_normality(residuals_1, alpha=0.05)
 
             # Covariance matrix
             cov_0 = np.cov(residuals_0, rowvar=False)
