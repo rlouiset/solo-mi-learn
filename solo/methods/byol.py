@@ -227,14 +227,14 @@ class BYOL(BaseMomentumMethod):
             isotropy_ratio_0_residuals = eigvals.max() / eigvals.min()
 
             # Gaussianity of students
-            students_0 = Z[0].cpu().numpy()
+            students_0 = F.normalize(Z[0], dim=-1).cpu().numpy()
             _, p_value_0_student, _ = pg.multivariate_normality(students_0, alpha=0.05)
             cov = np.cov(students_0, rowvar=False)
             eigvals = np.linalg.eigvalsh(cov)
             isotropy_ratio_0_student = eigvals.max() / eigvals.min()
 
             # Gaussianity of teachers
-            teachers_0 = Z_momentum[0].cpu().numpy()
+            teachers_0 = F.normalize(Z_momentum[0], dim=-1).cpu().numpy()
             _, p_value_0_teacher, _ = pg.multivariate_normality(teachers_0, alpha=0.05)
             cov = np.cov(teachers_0, rowvar=False)
             eigvals = np.linalg.eigvalsh(cov)
