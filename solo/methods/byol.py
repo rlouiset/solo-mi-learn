@@ -19,7 +19,7 @@ import math
 # DEALINGS IN THE SOFTWARE.
 
 from typing import Any, Dict, List, Sequence, Tuple
-
+import pingouin as pg
 import numpy as np
 import omegaconf
 import torch
@@ -222,8 +222,17 @@ class BYOL(BaseMomentumMethod):
             residuals_0 = F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)
             residuals_1 = F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1)
 
-            shapiro_pvals_0, dagostino_pvals_0 = test_gaussianity_random_projections(residuals_0)
-            shapiro_pvals_1, dagostino_pvals_1 = test_gaussianity_random_projections(residuals_1)
+            stat_0, p_value_0 = pg.multivariate_normality(residuals_0, alpha=0.05, method='mardia')
+            stat_1, p_value_1 = pg.multivariate_normality(residuals_1, alpha=0.05, method='mardia')
+
+            # Covariance matrix
+            cov_0 = np.cov(residuals_0, rowvar=False)
+            eigvals_0 = np.linalg.eigvalsh(cov_0)
+            isotropy_ratio_0 = eigvals_0.max() / eigvals_0.min()
+
+            cov_1 = np.cov(residuals_1, rowvar=False)
+            eigvals_1 = np.linalg.eigvalsh(cov_1)
+            isotropy_ratio_1 = eigvals_1.max() / eigvals_1.min()
 
             # TODO: Interpolate backbone and projector
             interpolated_backbone = interpolate_network(self.backbone, self.momentum_backbone, 0.99)
@@ -258,8 +267,8 @@ class BYOL(BaseMomentumMethod):
             "residual_std": residual_std,
             "rho_x": student_teacher_pearson_corr_x,
             "rho": student_teacher_pearson_corr,
-            "shapiro": (np.mean(shapiro_pvals_0) + np.mean(shapiro_pvals_1)) / 2,
-            "dagostino": (np.mean(dagostino_pvals_0) + np.mean(dagostino_pvals_1)) / 2,
+            "mardia": (p_value_0 + p_value_1) / 2,
+            "isotropy_ratio": (isotropy_ratio_0 + isotropy_ratio_1) / 2,
             "interpolation_check": interpolation_check,
         }
 
