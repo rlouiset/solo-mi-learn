@@ -241,7 +241,7 @@ class BYOL(BaseMomentumMethod):
             isotropy_ratio_0_teacher = eigvals.max() / eigvals.min()
 
             # cross-cov between residuals and students
-            cross_cov = cross_covariance_norm(F.normalize(students_0, dim=-1), residuals_0)
+            cross_cov = cross_covariance_norm(F.normalize(Z[0].cpu().numpy(), dim=-1), residuals_0)
 
             # TODO: Interpolate backbone and projector
             interpolated_backbone = interpolate_network(self.backbone, self.momentum_backbone, 0.99)
