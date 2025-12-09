@@ -219,8 +219,8 @@ class BYOL(BaseMomentumMethod):
                             (F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1))).std(dim=1).mean() / 2
 
             # residuals of normalized representations
-            residuals_0 = F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1)
-            residuals_1 = F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1)
+            residuals_0 = F.normalize(Z_momentum[1], dim=-1) - F.normalize(P[0], dim=-1).cpu().numpy()
+            residuals_1 = F.normalize(Z_momentum[0], dim=-1) - F.normalize(P[1], dim=-1).cpu().numpy()
 
             stat_0, p_value_0 = pg.multivariate_normality(residuals_0, alpha=0.05)
             stat_1, p_value_1 = pg.multivariate_normality(residuals_1, alpha=0.05)
