@@ -32,6 +32,13 @@ from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
+import torch.nn.init as init
+
+def kaiming_init(module):
+    if isinstance(module, (nn.Conv2d, nn.Linear)):
+        init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+        if module.bias is not None:
+            init.zeros_(module.bias)
 
 class BYOL(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
@@ -45,6 +52,8 @@ class BYOL(BaseMomentumMethod):
         """
 
         super().__init__(cfg)
+
+        self.momentum_backbone.apply(kaiming_init)
 
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
@@ -242,13 +251,6 @@ class BYOL(BaseMomentumMethod):
             eigvals = np.linalg.eigvalsh(cov)
             isotropy_ratio_0_teacher = eigvals.max() / eigvals.min()
 
-            # cross-cov between residuals and students
-            cross_cov = cross_covariance_norm(F.normalize(Z[0], dim=-1).cpu().numpy(), residuals_0)
-            stat = dcor.distance_covariance(F.normalize(Z[0], dim=-1).cpu().numpy(), residuals_0)
-            pval = dcor.independence.distance_covariance_test(
-                F.normalize(Z[0], dim=-1).cpu().numpy(), residuals_0, num_resamples=200
-            ).p_value
-
             # TODO: Interpolate backbone and projector
             interpolated_backbone = interpolate_network(self.backbone, self.momentum_backbone, 0.99)
             interpolated_projector = interpolate_network(self.projector, self.momentum_projector, 0.99)
@@ -288,8 +290,7 @@ class BYOL(BaseMomentumMethod):
             "isotropy_ratio_student": isotropy_ratio_0_student,
             "hz_test_teacher": p_value_0_teacher,
             "isotropy_ratio_teacher": isotropy_ratio_0_teacher,
-            "interpolation_check": interpolation_check,
-            "cross_cov_pval": pval
+            "interpolation_check": interpolation_check
         }
 
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
