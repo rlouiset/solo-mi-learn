@@ -53,8 +53,6 @@ class BYOL(BaseMomentumMethod):
 
         super().__init__(cfg)
 
-        self.momentum_backbone.apply(kaiming_init)
-
         proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
         proj_output_dim: int = cfg.method_kwargs.proj_output_dim
         pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
@@ -75,6 +73,9 @@ class BYOL(BaseMomentumMethod):
             nn.Linear(proj_hidden_dim, proj_output_dim),
         )
         initialize_momentum_params(self.projector, self.momentum_projector)
+
+        self.momentum_backbone.apply(kaiming_init)
+        self.projector.apply(kaiming_init)
 
         # predictor
         self.predictor = nn.Sequential(
