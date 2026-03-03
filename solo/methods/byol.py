@@ -74,8 +74,8 @@ class BYOL(BaseMomentumMethod):
         )
         initialize_momentum_params(self.projector, self.momentum_projector)
 
-        self.momentum_backbone.apply(kaiming_init)
-        self.projector.apply(kaiming_init)
+        #self.momentum_backbone.apply(kaiming_init)
+        #self.projector.apply(kaiming_init)
 
         # predictor
         self.predictor = nn.Sequential(
