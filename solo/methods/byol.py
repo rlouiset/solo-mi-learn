@@ -32,6 +32,8 @@ from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
+from math import *
+
 import torch.nn.init as init
 
 def kaiming_init(module):
