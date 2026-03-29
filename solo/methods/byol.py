@@ -412,7 +412,7 @@ class BYOL(BaseMomentumMethod):
                     metrics[f"{name}_gauss_kurtosis_std"] = np.std(kurtoses)
                     metrics[f"{name}_gauss_skewness"] = np.mean(skewnesses)
 
-        self.log_dict(metrics, on_epoch=True, sync_dist=True)
+        self.log_dict(metrics, on_epoch=True, sync_dist=False)
 
         return neg_cos_sim + class_loss
 
