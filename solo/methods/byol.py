@@ -256,14 +256,12 @@ class BYOL(BaseMomentumMethod):
             r_X = (cond_var_student / (cond_var_teacher + 1e-10)).sqrt()
 
             # =============================================
-            # LEMMA 1 CHECK: sigma_{t+1}/sigma_t >= tau (every step)
+            # LEMMA 2 CHECK: sigma_{t+1}/sigma_t >= tau (every step)
             # =============================================
-            sigma_ratio = sigma_teacher  # will compare with previous step
-            # (store self._prev_sigma_teacher to compute ratio across steps)
             if hasattr(self, '_prev_sigma_teacher') and self._prev_sigma_teacher > 0:
-                lemma1_ratio = sigma_teacher / self._prev_sigma_teacher
+                lemma2_ratio = sigma_teacher / self._prev_sigma_teacher
             else:
-                lemma1_ratio = torch.tensor(1.0)
+                lemma2_ratio = torch.tensor(1.0)
             self._prev_sigma_teacher = sigma_teacher.clone()
 
             # =============================================
@@ -277,7 +275,8 @@ class BYOL(BaseMomentumMethod):
                              residual_10.norm(dim=1).mean()) / 2
             residual_var = residual_01.var(dim=0).mean()
 
-            # Independence check: |corr(residual, student)| should be ~0
+            # Assumption 1 independence check: uncorrelation of G_t and Z_phi
+            # Under the Gaussian residual assumption, uncorrelated => independent
             rho_residual_student = abs(estimate_rho_isotropic(residual_01, z0))
 
             # =============================================
@@ -313,8 +312,8 @@ class BYOL(BaseMomentumMethod):
             "r_X": r_X,
             "sigma_student": sigma_student,
             "sigma_teacher": sigma_teacher,
-            # Lemma 1
-            "lemma1_sigma_ratio": lemma1_ratio,
+            # Lemma 2
+            "lemma2_sigma_ratio": lemma2_ratio,
             # Assumption 1 (residuals)
             "residual_norm": residual_norm,
             "residual_var": residual_var,
@@ -325,36 +324,12 @@ class BYOL(BaseMomentumMethod):
 
         # =============================================
         # EXPENSIVE DIAGNOSTICS (every N steps)
-        # Needed for: Assumption 4 (Gaussianity + isotropy)
         # =============================================
         if batch_idx % 100 == 0:
             with torch.no_grad():
-                # -- Covariance structure (isotropy vs diagonal) --
-                for name, tensor in [("student", z0), ("teacher", zm0), ("residual", residual_01)]:
-                    t_np = tensor.detach().cpu().numpy()
-                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
-                    cov = (t_centered.T @ t_centered) / (t_np.shape[0] - 1)
-                    eigvals = np.linalg.eigvalsh(cov)[::-1]
 
-                    # Condition number (isotropic => 1)
-                    metrics[f"{name}_condition_number"] = eigvals[0] / (eigvals[-1] + 1e-10)
-
-                    # Eigenvalue CV (isotropic => 0)
-                    metrics[f"{name}_eigval_cv"] = eigvals.std() / (eigvals.mean() + 1e-10)
-
-                    # Effective rank ratio (isotropic => 1.0)
-                    p = eigvals / (eigvals.sum() + 1e-10)
-                    p = p[p > 1e-12]
-                    eff_rank = np.exp(-np.sum(p * np.log(p)))
-                    metrics[f"{name}_effective_rank_ratio"] = eff_rank / tensor.shape[1]
-
-                    # Off-diagonal Frobenius ratio (diagonal => 0)
-                    diag_part = np.diag(np.diag(cov))
-                    offdiag_frob = np.linalg.norm(cov - diag_part, 'fro')
-                    total_frob = np.linalg.norm(cov, 'fro')
-                    metrics[f"{name}_offdiag_frob_ratio"] = offdiag_frob / (total_frob + 1e-10)
-
-                # -- Per-dimension rho (isotropy of cross-covariance) --
+                # -- Per-dimension rho (diagonal cross-covariance check) --
+                # Needed for: Corollary 1 under diagonal covariance
                 z0_c = z0 - z0.mean(dim=0, keepdim=True)
                 zm1_c = zm1 - zm1.mean(dim=0, keepdim=True)
                 B = z0.shape[0]
@@ -364,53 +339,66 @@ class BYOL(BaseMomentumMethod):
                 rho_per_dim = cov_per_dim / (std_z * std_zm + 1e-10)
                 rho_np = rho_per_dim.cpu().numpy()
 
-                metrics["rho_diag_mean"] = rho_np.mean()
-                metrics["rho_diag_std"] = rho_np.std()
-                metrics["rho_diag_min"] = rho_np.min()
-                metrics["rho_frac_positive"] = (rho_np > 0).mean()
+                metrics["rho_diag_std"] = float(rho_np.std())
+                metrics["rho_diag_min"] = float(rho_np.min())
+                metrics["rho_frac_positive"] = float((rho_np > 0).mean())
 
-        # =============================================
-        # GAUSSIANITY CHECK (every M steps, expensive)
-        # Needed for: Assumption 4 (marginal Gaussianity)
-        # Uses Cramer-Wold: project onto random 1D directions, test normality
-        # =============================================
-        if batch_idx % 500 == 0:
-            with torch.no_grad():
-                num_projections = 20
+                # -- Diagonality check: off-diagonal Frobenius ratio --
+                # Needed for: justifying diagonal covariance assumption
+                # diagonal => 0, full covariance => large
+                for name, tensor in [("student", z0), ("teacher", zm0)]:
+                    t_np = tensor.detach().cpu().numpy()
+                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
+                    cov = (t_centered.T @ t_centered) / (t_np.shape[0] - 1)
 
-                for name, tensor in [("student", z0), ("teacher", zm0), ("residual", residual_01)]:
+                    diag_part = np.diag(np.diag(cov))
+                    offdiag_frob = np.linalg.norm(cov - diag_part, 'fro')
+                    total_frob = np.linalg.norm(cov, 'fro')
+                    metrics[f"{name}_offdiag_frob_ratio"] = float(
+                        offdiag_frob / (total_frob + 1e-10))
+
+                # -- Gaussianity checks --
+                # Mardia's multivariate kurtosis ratio:
+                #   For a d-dimensional Gaussian, E[((x-mu)^T Sigma^{-1} (x-mu))^2] = d(d+2)
+                #   Ratio close to 1.0 => consistent with Gaussianity
+                # Henze-Zirkler test:
+                #   p-value > 0.05 => cannot reject Gaussianity
+                #   Note: HZ is very powerful in high-d; low p-values are expected
+                #   even for "approximately Gaussian" data. Mardia's ratio is more
+                #   informative for our purposes.
+                for name, tensor in [("student", z0), ("teacher", zm0),
+                                     ("residual", residual_01)]:
                     t_np = tensor.detach().cpu().numpy()
                     n, d = t_np.shape
+
+                    # --- Mardia's kurtosis ---
                     t_centered = t_np - t_np.mean(axis=0, keepdims=True)
+                    cov = (t_centered.T @ t_centered) / (n - 1)
 
-                    pvals = []
-                    kurtoses = []
-                    skewnesses = []
+                    # Regularize for inversion stability
+                    cov_reg = cov + 1e-6 * np.eye(d)
+                    cov_inv = np.linalg.inv(cov_reg)
 
-                    for _ in range(num_projections):
-                        v = np.random.randn(d)
-                        v /= np.linalg.norm(v)
-                        proj = t_centered @ v
-                        proj_std = (proj - proj.mean()) / (proj.std() + 1e-10)
+                    # Mahalanobis distances squared: D_i = (x_i - mu)^T Sigma^{-1} (x_i - mu)
+                    mahal_sq = np.sum((t_centered @ cov_inv) * t_centered, axis=1)  # [n]
 
-                        # Shapiro-Wilk (subsample if large batch)
-                        if n > 5000:
-                            idx = np.random.choice(n, 5000, replace=False)
-                            _, pval = shapiro(proj_std[idx])
-                        else:
-                            _, pval = shapiro(proj_std)
-                        pvals.append(pval)
+                    # Mardia's kurtosis: (1/n) sum D_i^2
+                    mardia_kurtosis = np.mean(mahal_sq ** 2)
 
-                        # Excess kurtosis (Gaussian = 0)
-                        kurtoses.append(float(np.mean(proj_std ** 4) - 3.0))
-                        # Skewness (Gaussian = 0)
-                        skewnesses.append(float(np.mean(proj_std ** 3)))
+                    # Expected value under Gaussianity: d(d+2)
+                    mardia_expected = d * (d + 2)
+                    mardia_ratio = mardia_kurtosis / mardia_expected
 
-                    metrics[f"{name}_gauss_shapiro_median_pval"] = np.median(pvals)
-                    metrics[f"{name}_gauss_rejection_rate"] = np.mean(np.array(pvals) < 0.05)
-                    metrics[f"{name}_gauss_excess_kurtosis"] = np.mean(kurtoses)
-                    metrics[f"{name}_gauss_kurtosis_std"] = np.std(kurtoses)
-                    metrics[f"{name}_gauss_skewness"] = np.mean(skewnesses)
+                    metrics[f"{name}_mardia_kurtosis_ratio"] = float(mardia_ratio)
+
+                    # --- Henze-Zirkler test ---
+                    try:
+                        _, hz_pvalue, _ = pg.multivariate_normality(
+                            t_np, alpha=0.05)
+                        metrics[f"{name}_hz_pvalue"] = float(hz_pvalue)
+                    except Exception:
+                        # HZ can fail with singular covariance or very large n
+                        metrics[f"{name}_hz_pvalue"] = float('nan')
 
         self.log_dict(metrics, on_epoch=True, sync_dist=False)
 
