@@ -204,7 +204,25 @@ class BYOL(BaseMomentumMethod):
 
         # ------- diagnostics (no grad) -------
         with torch.no_grad():
-            # L2-normalize once, reuse everywhere
+
+            # ==========================================================
+            # RAW projector outputs (for Section 4: EMA dynamics)
+            # The entropy/alignment dynamics operate in pre-normalization
+            # space. The connection to the normalized loss is via the
+            # Gaussian-vMF equivalence (Sec. 3.1).
+            # ==========================================================
+            z0_raw = Z[0]  # [B, d] raw projector output
+            z1_raw = Z[1]
+            zm0_raw = Z_momentum[0]  # [B, d] raw momentum projector output
+            zm1_raw = Z_momentum[1]
+            p0_raw = P[0]  # [B, d] raw predictor output
+            p1_raw = P[1]
+
+            # ==========================================================
+            # L2-NORMALIZED representations (for Section 3: InfoMax bound)
+            # The BYOL loss, entropy/alignment estimators, and correlation
+            # rho^t are computed on the unit sphere.
+            # ==========================================================
             z0 = F.normalize(Z[0], dim=-1)
             z1 = F.normalize(Z[1], dim=-1)
             zm0 = F.normalize(Z_momentum[0], dim=-1)
@@ -213,8 +231,10 @@ class BYOL(BaseMomentumMethod):
             p1 = F.normalize(P[1], dim=-1)
 
             # =============================================
-            # CORE TRAINING METRICS (every step)
+            # SECTION 3 METRICS: on normalized representations
             # =============================================
+
+            # -- Core training metrics --
             z_std = torch.stack([z0, z1]).std(dim=1).mean()
             z_std_teacher = torch.stack([zm0, zm1]).std(dim=1).mean()
 
@@ -226,62 +246,52 @@ class BYOL(BaseMomentumMethod):
             teacher_alignment = align_loss_func(zm0, zm1)
             predictor_alignment = align_loss_func(p0, p1)
 
-            # =============================================
-            # CORRELATION rho^t and rho_X^t (every step)
-            # Needed for: Corollary 1, entropy/alignment dynamics
-            # =============================================
-
-            # -- Marginal rho^t (isotropic estimate) --
+            # -- Corollary 1: rho^t and rho_X^t (on normalized) --
             rho = (estimate_rho_isotropic(z0, zm1) +
                    estimate_rho_isotropic(z1, zm0)) / 2
 
-            # -- Conditional rho_X^t (proxy via augmentation-pair norms) --
             norm_s = torch.linalg.norm(z0 - z1, dim=1)
             norm_t = torch.linalg.norm(zm0 - zm1, dim=1)
             ns = norm_s - norm_s.mean()
             nt = norm_t - norm_t.mean()
             rho_x = (ns @ nt) / (torch.norm(ns) * torch.norm(nt) + 1e-10)
 
-            # =============================================
-            # VARIANCE RATIOS r and r_X (every step)
-            # Needed for: entropy/alignment dynamics interpretation
-            # =============================================
-            sigma_student = z0.var(dim=0).mean().sqrt()
-            sigma_teacher = zm0.var(dim=0).mean().sqrt()
-            r_marginal = sigma_student / (sigma_teacher + 1e-10)
-
-            # Conditional variance proxy: Var(z(v1) - z(v2)) / 2
-            cond_var_student = (z0 - z1).pow(2).mean(dim=0).mean() / 2
-            cond_var_teacher = (zm0 - zm1).pow(2).mean(dim=0).mean() / 2
-            r_X = (cond_var_student / (cond_var_teacher + 1e-10)).sqrt()
+            # -- Residual on normalized (what the loss actually minimizes) --
+            residual_norm = ((zm1 - p0).norm(dim=1).mean() +
+                             (zm0 - p1).norm(dim=1).mean()) / 2
 
             # =============================================
-            # LEMMA 2 CHECK: sigma_{t+1}/sigma_t >= tau (every step)
+            # SECTION 4 METRICS: on RAW projector outputs
             # =============================================
-            if hasattr(self, '_prev_sigma_teacher') and self._prev_sigma_teacher > 0:
-                lemma2_ratio = sigma_teacher / self._prev_sigma_teacher
+
+            # -- Variance ratios r and r_X --
+            sigma_student_raw = z0_raw.var(dim=0).mean().sqrt()
+            sigma_teacher_raw = zm0_raw.var(dim=0).mean().sqrt()
+            r_marginal = sigma_student_raw / (sigma_teacher_raw + 1e-10)
+
+            cond_var_student_raw = (z0_raw - z1_raw).pow(2).mean(dim=0).mean() / 2
+            cond_var_teacher_raw = (zm0_raw - zm1_raw).pow(2).mean(dim=0).mean() / 2
+            r_X = (cond_var_student_raw / (cond_var_teacher_raw + 1e-10)).sqrt()
+
+            # -- Lemma 2 check: sigma_{t+1}/sigma_t >= tau --
+            if hasattr(self, '_prev_sigma_teacher_raw') and self._prev_sigma_teacher_raw > 0:
+                lemma2_ratio = sigma_teacher_raw / self._prev_sigma_teacher_raw
             else:
                 lemma2_ratio = torch.tensor(1.0)
-            self._prev_sigma_teacher = sigma_teacher.clone()
+            self._prev_sigma_teacher_raw = sigma_teacher_raw.clone()
 
-            # =============================================
-            # RESIDUAL DIAGNOSTICS (every step)
-            # Needed for: Assumption 1 (predictor-as-additive-map)
-            # =============================================
-            residual_01 = zm1 - p0  # teacher v2 - predictor(student v1)
-            residual_10 = zm0 - p1
+            # -- Assumption 1: residual diagnostics on raw outputs --
+            residual_01_raw = zm1_raw - p0_raw
+            residual_10_raw = zm0_raw - p1_raw
 
-            residual_norm = (residual_01.norm(dim=1).mean() +
-                             residual_10.norm(dim=1).mean()) / 2
-            residual_var = residual_01.var(dim=0).mean()
+            residual_var_raw = residual_01_raw.var(dim=0).mean()
 
-            # Assumption 1 independence check: uncorrelation of G_t and Z_phi
-            # Under the Gaussian residual assumption, uncorrelated => independent
-            rho_residual_student = abs(estimate_rho_isotropic(residual_01, z0))
+            # Independence check: |corr(G_t, Z_phi)| should be ~0
+            # Under Gaussian residual assumption, uncorrelated => independent
+            rho_residual_student_raw = abs(estimate_rho_isotropic(
+                residual_01_raw, z0_raw))
 
-            # =============================================
-            # ASSUMPTION 2 CHECK: linear interpolation of outputs
-            # =============================================
+            # -- Assumption 2 check: linear interpolation of outputs --
             interpolated_backbone = interpolate_network(
                 self.backbone, self.momentum_backbone, 0.99)
             interpolated_projector = interpolate_network(
@@ -289,12 +299,13 @@ class BYOL(BaseMomentumMethod):
 
             X_crop = batch[1][0]
             feats_interp = interpolated_backbone(X_crop)
-            Z_interp_net = F.normalize(interpolated_projector(feats_interp), dim=-1)
-            Z_weighted = 0.99 * zm0 + (1 - 0.99) * z0
-            interpolation_check = torch.norm(Z_interp_net - Z_weighted, dim=1).mean()
+            Z_interp_net = interpolated_projector(feats_interp)  # raw, no normalize
+            Z_weighted_raw = 0.99 * zm0_raw + (1 - 0.99) * z0_raw
+            interpolation_check = torch.norm(
+                Z_interp_net - Z_weighted_raw, dim=1).mean()
 
         metrics = {
-            # Core training
+            # Section 3: on normalized
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
             "train_z_std_teacher": z_std_teacher,
@@ -304,38 +315,35 @@ class BYOL(BaseMomentumMethod):
             "train_student_alignment": student_alignment,
             "train_teacher_alignment": teacher_alignment,
             "train_predictor_alignment": predictor_alignment,
-            # Correlations (Corollary 1)
             "rho": rho,
             "rho_x": rho_x,
-            # Variance ratios (entropy/alignment dynamics)
+            "residual_norm": residual_norm,
+            # Section 4: on raw outputs
             "r_marginal": r_marginal,
             "r_X": r_X,
-            "sigma_student": sigma_student,
-            "sigma_teacher": sigma_teacher,
-            # Lemma 2
+            "sigma_student_raw": sigma_student_raw,
+            "sigma_teacher_raw": sigma_teacher_raw,
             "lemma2_sigma_ratio": lemma2_ratio,
-            # Assumption 1 (residuals)
-            "residual_norm": residual_norm,
-            "residual_var": residual_var,
-            "rho_residual_student": rho_residual_student,
-            # Assumption 2 (interpolation)
+            "residual_var_raw": residual_var_raw,
+            "rho_residual_student_raw": rho_residual_student_raw,
             "interpolation_check": interpolation_check,
         }
 
         # =============================================
         # EXPENSIVE DIAGNOSTICS (every N steps)
+        # All on RAW outputs (Section 4 assumptions)
         # =============================================
         if batch_idx % 100 == 0:
             with torch.no_grad():
 
-                # -- Per-dimension rho (diagonal cross-covariance check) --
+                # -- Per-dimension rho on raw outputs --
                 # Needed for: Corollary 1 under diagonal covariance
-                z0_c = z0 - z0.mean(dim=0, keepdim=True)
-                zm1_c = zm1 - zm1.mean(dim=0, keepdim=True)
-                B = z0.shape[0]
-                cov_per_dim = (z0_c * zm1_c).sum(dim=0) / (B - 1)
-                std_z = z0_c.pow(2).sum(dim=0).div(B - 1).sqrt()
-                std_zm = zm1_c.pow(2).sum(dim=0).div(B - 1).sqrt()
+                z0r_c = z0_raw - z0_raw.mean(dim=0, keepdim=True)
+                zm1r_c = zm1_raw - zm1_raw.mean(dim=0, keepdim=True)
+                B = z0_raw.shape[0]
+                cov_per_dim = (z0r_c * zm1r_c).sum(dim=0) / (B - 1)
+                std_z = z0r_c.pow(2).sum(dim=0).div(B - 1).sqrt()
+                std_zm = zm1r_c.pow(2).sum(dim=0).div(B - 1).sqrt()
                 rho_per_dim = cov_per_dim / (std_z * std_zm + 1e-10)
                 rho_np = rho_per_dim.cpu().numpy()
 
@@ -343,61 +351,45 @@ class BYOL(BaseMomentumMethod):
                 metrics["rho_diag_min"] = float(rho_np.min())
                 metrics["rho_frac_positive"] = float((rho_np > 0).mean())
 
-                # -- Diagonality check: off-diagonal Frobenius ratio --
-                # Needed for: justifying diagonal covariance assumption
-                # diagonal => 0, full covariance => large
-                for name, tensor in [("student", z0), ("teacher", zm0)]:
-                    t_np = tensor.detach().cpu().numpy()
-                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
-                    cov = (t_centered.T @ t_centered) / (t_np.shape[0] - 1)
+                # -- Diagonality and Gaussianity checks on raw outputs --
+                residual_01_raw_detached = residual_01_raw  # already in no_grad
 
+                for name, tensor in [("student", z0_raw),
+                                     ("teacher", zm0_raw),
+                                     ("residual", residual_01_raw_detached)]:
+                    t_np = tensor.detach().cpu().numpy()
+                    n, d = t_np.shape
+                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
+                    cov = (t_centered.T @ t_centered) / (n - 1)
+
+                    # --- Diagonality: off-diagonal Frobenius ratio ---
+                    # diagonal => 0, full covariance => large
                     diag_part = np.diag(np.diag(cov))
                     offdiag_frob = np.linalg.norm(cov - diag_part, 'fro')
                     total_frob = np.linalg.norm(cov, 'fro')
                     metrics[f"{name}_offdiag_frob_ratio"] = float(
                         offdiag_frob / (total_frob + 1e-10))
 
-                # -- Gaussianity checks --
-                # Mardia's multivariate kurtosis ratio:
-                #   For a d-dimensional Gaussian, E[((x-mu)^T Sigma^{-1} (x-mu))^2] = d(d+2)
-                #   Ratio close to 1.0 => consistent with Gaussianity
-                # Henze-Zirkler test:
-                #   p-value > 0.05 => cannot reject Gaussianity
-                #   Note: HZ is very powerful in high-d; low p-values are expected
-                #   even for "approximately Gaussian" data. Mardia's ratio is more
-                #   informative for our purposes.
-                for name, tensor in [("student", z0), ("teacher", zm0),
-                                     ("residual", residual_01)]:
-                    t_np = tensor.detach().cpu().numpy()
-                    n, d = t_np.shape
-
-                    # --- Mardia's kurtosis ---
-                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
-                    cov = (t_centered.T @ t_centered) / (n - 1)
-
-                    # Regularize for inversion stability
+                    # --- Mardia's multivariate kurtosis ratio ---
+                    # Gaussian => ratio = 1.0
                     cov_reg = cov + 1e-6 * np.eye(d)
                     cov_inv = np.linalg.inv(cov_reg)
-
-                    # Mahalanobis distances squared: D_i = (x_i - mu)^T Sigma^{-1} (x_i - mu)
-                    mahal_sq = np.sum((t_centered @ cov_inv) * t_centered, axis=1)  # [n]
-
-                    # Mardia's kurtosis: (1/n) sum D_i^2
+                    mahal_sq = np.sum(
+                        (t_centered @ cov_inv) * t_centered, axis=1)
                     mardia_kurtosis = np.mean(mahal_sq ** 2)
-
-                    # Expected value under Gaussianity: d(d+2)
                     mardia_expected = d * (d + 2)
-                    mardia_ratio = mardia_kurtosis / mardia_expected
-
-                    metrics[f"{name}_mardia_kurtosis_ratio"] = float(mardia_ratio)
+                    metrics[f"{name}_mardia_kurtosis_ratio"] = float(
+                        mardia_kurtosis / mardia_expected)
 
                     # --- Henze-Zirkler test ---
+                    # Raw outputs are full-rank, so HZ should not fail.
+                    # Note: HZ is very powerful in high-d; low p-values
+                    # are expected even for "approximately Gaussian" data.
                     try:
                         _, hz_pvalue, _ = pg.multivariate_normality(
                             t_np, alpha=0.05)
                         metrics[f"{name}_hz_pvalue"] = float(hz_pvalue)
                     except Exception:
-                        # HZ can fail with singular covariance or very large n
                         metrics[f"{name}_hz_pvalue"] = float('nan')
 
         self.log_dict(metrics, on_epoch=True, sync_dist=False)
