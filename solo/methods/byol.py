@@ -642,6 +642,115 @@ class BYOL(BaseMomentumMethod):
                     metrics[f"{name}_corr_ratio_to_baseline"] = float(
                         mean_abs_corr / (sphere_baseline + 1e-10))
 
+                # =============================================
+                # GENERAL GAUSSIAN ENTROPY DYNAMICS CHECK
+                # H(Z_theta^{t+1}) - H(Z_theta^t) = 0.5 * log det(Sigma_{t+1} / Sigma_t)
+                # No isotropy or diagonal assumption needed — only Gaussianity.
+                # Uses interpolated teacher for Sigma_{t+1}.
+                # Condition for Lemma 2: >= d * log(tau)
+                # =============================================
+                def safe_log_det_ratio(z_next, z_curr):
+                    """Compute 0.5 * log(det(Sigma_next) / det(Sigma_curr))
+                    using Cholesky for numerical stability."""
+                    n = z_curr.shape[0]
+                    d_dim = z_curr.shape[1]
+
+                    # Center
+                    z_curr_c = z_curr - z_curr.mean(dim=0, keepdim=True)
+                    z_next_c = z_next - z_next.mean(dim=0, keepdim=True)
+
+                    # Sample covariance matrices
+                    Sigma_curr = (z_curr_c.T @ z_curr_c) / (n - 1)
+                    Sigma_next = (z_next_c.T @ z_next_c) / (n - 1)
+
+                    # Regularize for numerical stability
+                    reg = 1e-6 * torch.eye(d_dim, device=z_curr.device)
+                    Sigma_curr = Sigma_curr + reg
+                    Sigma_next = Sigma_next + reg
+
+                    # log det via Cholesky: log det(A) = 2 * sum(log(diag(chol(A))))
+                    try:
+                        L_curr = torch.linalg.cholesky(Sigma_curr)
+                        L_next = torch.linalg.cholesky(Sigma_next)
+                        log_det_curr = 2 * torch.log(torch.diag(L_curr)).sum()
+                        log_det_next = 2 * torch.log(torch.diag(L_next)).sum()
+                        return 0.5 * (log_det_next - log_det_curr)
+                    except Exception:
+                        return torch.tensor(float('nan'))
+
+                # z_interp is already computed above (interpolated teacher on view 1)
+                # zm0 is current teacher on view 1
+                logdet_entropy_diff = safe_log_det_ratio(z_interp, zm0)
+                d_dim = zm0.shape[1]
+                logdet_threshold = d_dim * math.log(0.99)  # d * log(tau)
+                logdet_lemma2_holds = (logdet_entropy_diff >= logdet_threshold).float()
+
+                metrics["logdet_entropy_diff"] = logdet_entropy_diff
+                metrics["logdet_threshold"] = logdet_threshold
+                metrics["logdet_lemma2_holds"] = logdet_lemma2_holds
+
+                # Also track the actual log-determinants for plotting
+                n = zm0.shape[0]
+                zm0_c = zm0 - zm0.mean(dim=0, keepdim=True)
+                Sigma_teacher = (zm0_c.T @ zm0_c) / (n - 1)
+                reg = 1e-6 * torch.eye(d_dim, device=zm0.device)
+                try:
+                    L_teacher = torch.linalg.cholesky(Sigma_teacher + reg)
+                    log_det_teacher = 2 * torch.log(torch.diag(L_teacher)).sum()
+                    metrics["teacher_log_det"] = log_det_teacher.item()
+                    # Effective rank from eigenvalues
+                    eigvals = torch.linalg.eigvalsh(Sigma_teacher + reg)
+                    eigvals_pos = eigvals[eigvals > 1e-10]
+                    p = eigvals_pos / eigvals_pos.sum()
+                    effective_rank = torch.exp(-torch.sum(p * torch.log(p)))
+                    metrics["teacher_effective_rank"] = effective_rank.item()
+                except Exception:
+                    metrics["teacher_log_det"] = float('nan')
+                    metrics["teacher_effective_rank"] = float('nan')
+
+                # =============================================
+                # GAUSSIANITY CHECK VIA RANDOM PROJECTIONS
+                # Cramer-Wold theorem: X is multivariate Gaussian iff
+                # all 1D projections v^T X are univariate Gaussian.
+                # We test K random projections using Anderson-Darling
+                # (following Betser et al. 2026).
+                # This works on normalized representations and avoids
+                # issues with multivariate tests (HZ, Mardia) on the sphere.
+                # =============================================
+                from scipy.stats import anderson
+
+                num_projections = 30
+
+                for name, tensor in [("student", z0), ("teacher", zm0)]:
+                    t_np = tensor.detach().cpu().numpy()
+                    n_samples, d_dim = t_np.shape
+                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
+
+                    ad_stats = []
+                    for _ in range(num_projections):
+                        # Random unit vector
+                        v = np.random.randn(d_dim)
+                        v /= np.linalg.norm(v)
+
+                        # Project
+                        proj = t_centered @ v  # [n_samples]
+
+                        # Standardize
+                        proj = (proj - proj.mean()) / (proj.std() + 1e-10)
+
+                        # Anderson-Darling test
+                        ad_result = anderson(proj, dist='norm')
+                        ad_stats.append(ad_result.statistic)
+
+                    ad_stats = np.array(ad_stats)
+
+                    # AD < 0.752 => cannot reject Gaussianity at 5% level
+                    metrics[f"{name}_proj_ad_avg"] = float(ad_stats.mean())
+                    metrics[f"{name}_proj_ad_frac_gaussian"] = float(
+                        (ad_stats < 0.752).mean())
+                    # Also report median (more robust to outlier projections)
+                    metrics[f"{name}_proj_ad_median"] = float(np.median(ad_stats))
+
         self.log_dict(metrics, on_epoch=True, sync_dist=False)
 
         return neg_cos_sim + class_loss
