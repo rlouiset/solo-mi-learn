@@ -31,6 +31,11 @@ from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMomentumMethod
 from solo.utils.momentum import initialize_momentum_params
 
+from scipy.stats import anderson, normaltest
+import math
+
+import penguin as pg
+
 import torch.nn.init as init
 
 def kaiming_init(module):
@@ -38,6 +43,145 @@ def kaiming_init(module):
         init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
         if module.bias is not None:
             init.zeros_(module.bias)
+
+class BYOL(BaseMomentumMethod):
+    def __init__(self, cfg: omegaconf.DictConfig):
+        """Implements BYOL (https://arxiv.org/abs/2006.07733).
+
+        Extra cfg settings:
+            method_kwargs:
+                proj_output_dim (int): number of dimensions of projected features.
+                proj_hidden_dim (int): number of neurons of the hidden layers of the projector.
+                pred_hidden_dim (int): number of neurons of the hidden layers of the predictor.
+        """
+
+        super().__init__(cfg)
+
+        proj_hidden_dim: int = cfg.method_kwargs.proj_hidden_dim
+        proj_output_dim: int = cfg.method_kwargs.proj_output_dim
+        pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
+
+        # projector
+        self.projector = nn.Sequential(
+            nn.Linear(self.features_dim, proj_hidden_dim),
+            nn.BatchNorm1d(proj_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(proj_hidden_dim, proj_output_dim),
+        )
+
+        # momentum projector
+        self.momentum_projector = nn.Sequential(
+            nn.Linear(self.features_dim, proj_hidden_dim),
+            nn.BatchNorm1d(proj_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(proj_hidden_dim, proj_output_dim),
+        )
+        initialize_momentum_params(self.projector, self.momentum_projector)
+
+        #self.momentum_backbone.apply(kaiming_init)
+        #self.projector.apply(kaiming_init)
+
+        # predictor
+        self.predictor = nn.Sequential(
+            nn.Linear(proj_output_dim, pred_hidden_dim),
+            nn.BatchNorm1d(pred_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(pred_hidden_dim, proj_output_dim),
+        )
+
+    @staticmethod
+    def add_and_assert_specific_cfg(cfg: omegaconf.DictConfig) -> omegaconf.DictConfig:
+        """Adds method specific default values/checks for config.
+
+        Args:
+            cfg (omegaconf.DictConfig): DictConfig object.
+
+        Returns:
+            omegaconf.DictConfig: same as the argument, used to avoid errors.
+        """
+
+        cfg = super(BYOL, BYOL).add_and_assert_specific_cfg(cfg)
+
+        assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
+        assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_output_dim")
+        assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.pred_hidden_dim")
+
+        return cfg
+
+    @property
+    def learnable_params(self) -> List[dict]:
+        """Adds projector and predictor parameters to the parent's learnable parameters.
+
+        Returns:
+            List[dict]: list of learnable parameters.
+        """
+
+        extra_learnable_params = [
+            {"name": "projector", "params": self.projector.parameters()},
+            {"name": "predictor", "params": self.predictor.parameters()},
+        ]
+        return super().learnable_params + extra_learnable_params
+
+    @property
+    def momentum_pairs(self) -> List[Tuple[Any, Any]]:
+        """Adds (projector, momentum_projector) to the parent's momentum pairs.
+
+        Returns:
+            List[Tuple[Any, Any]]: list of momentum pairs.
+        """
+
+        extra_momentum_pairs = [(self.projector, self.momentum_projector)]
+        return super().momentum_pairs + extra_momentum_pairs
+
+    def forward(self, X: torch.Tensor) -> Dict[str, Any]:
+        """Performs forward pass of the online backbone, projector and predictor.
+
+        Args:
+            X (torch.Tensor): batch of images in tensor format.
+
+        Returns:
+            Dict[str, Any]: a dict containing the outputs of the parent and the projected features.
+        """
+
+        out = super().forward(X)
+        z = self.projector(out["feats"])
+        p = self.predictor(z)
+        out.update({"z": z, "p": p})
+        return out
+
+    def multicrop_forward(self, X: torch.tensor) -> Dict[str, Any]:
+        """Performs the forward pass for the multicrop views.
+
+        Args:
+            X (torch.Tensor): batch of images in tensor format.
+
+        Returns:
+            Dict[]: a dict containing the outputs of the parent
+                and the projected features.
+        """
+
+        out = super().multicrop_forward(X)
+        z = self.projector(out["feats"])
+        p = self.predictor(z)
+        out.update({"z": z, "p": p})
+        return out
+
+    @torch.no_grad()
+    def momentum_forward(self, X: torch.Tensor) -> Dict:
+        """Performs the forward pass of the momentum backbone and projector.
+
+        Args:
+            X (torch.Tensor): batch of images in tensor format.
+
+        Returns:
+            Dict[str, Any]: a dict containing the outputs of
+                the parent and the momentum projected features.
+        """
+
+        out = super().momentum_forward(X)
+        z = self.momentum_projector(out["feats"])
+        out.update({"z": z})
+        return out
 
 class BYOL(BaseMomentumMethod):
     def __init__(self, cfg: omegaconf.DictConfig):
@@ -205,24 +349,7 @@ class BYOL(BaseMomentumMethod):
         # ------- diagnostics (no grad) -------
         with torch.no_grad():
 
-            # ==========================================================
-            # RAW projector outputs (for Section 4: EMA dynamics)
-            # The entropy/alignment dynamics operate in pre-normalization
-            # space. The connection to the normalized loss is via the
-            # Gaussian-vMF equivalence (Sec. 3.1).
-            # ==========================================================
-            z0_raw = Z[0]  # [B, d] raw projector output
-            z1_raw = Z[1]
-            zm0_raw = Z_momentum[0]  # [B, d] raw momentum projector output
-            zm1_raw = Z_momentum[1]
-            p0_raw = P[0]  # [B, d] raw predictor output
-            p1_raw = P[1]
-
-            # ==========================================================
-            # L2-NORMALIZED representations (for Section 3: InfoMax bound)
-            # The BYOL loss, entropy/alignment estimators, and correlation
-            # rho^t are computed on the unit sphere.
-            # ==========================================================
+            # L2-normalize representations (on the hypersphere)
             z0 = F.normalize(Z[0], dim=-1)
             z1 = F.normalize(Z[1], dim=-1)
             zm0 = F.normalize(Z_momentum[0], dim=-1)
@@ -230,11 +357,15 @@ class BYOL(BaseMomentumMethod):
             p0 = F.normalize(P[0], dim=-1)
             p1 = F.normalize(P[1], dim=-1)
 
-            # =============================================
-            # SECTION 3 METRICS: on normalized representations
-            # =============================================
+            # Raw projector outputs (pre-normalization)
+            z0_raw = Z[0]
+            z1_raw = Z[1]
+            zm0_raw = Z_momentum[0]
+            zm1_raw = Z_momentum[1]
 
-            # -- Core training metrics --
+            # =============================================
+            # CORE TRAINING METRICS (every step, normalized)
+            # =============================================
             z_std = torch.stack([z0, z1]).std(dim=1).mean()
             z_std_teacher = torch.stack([zm0, zm1]).std(dim=1).mean()
 
@@ -246,7 +377,41 @@ class BYOL(BaseMomentumMethod):
             teacher_alignment = align_loss_func(zm0, zm1)
             predictor_alignment = align_loss_func(p0, p1)
 
-            # -- Corollary 1: rho^t and rho_X^t (on normalized) --
+            # =============================================
+            # KDE ENTROPY ESTIMATOR (every step, normalized)
+            # H(Z) ≈ -1/N sum_i log (1/(N-1) sum_{j!=i} exp(-||z_i - z_j||^2 / (2*sigma^2)))
+            # This is the resubstitution entropy estimator with Gaussian kernel.
+            # We use sigma=1 for consistency with the BYOL loss derivation.
+            # =============================================
+            def kde_entropy(z, sigma=1.0):
+                """KDE entropy estimator on normalized representations."""
+                # z: [B, d], assumed l2-normalized
+                # Pairwise squared distances
+                dists_sq = torch.cdist(z, z, p=2).pow(2)  # [B, B]
+                B = z.shape[0]
+                # Mask diagonal
+                mask = ~torch.eye(B, dtype=torch.bool, device=z.device)
+                # Log-sum-exp over non-diagonal entries
+                log_density = torch.logsumexp(
+                    -dists_sq[mask].view(B, B - 1) / (2 * sigma ** 2), dim=1
+                ) - math.log(B - 1)
+                return -log_density.mean()
+
+            h_teacher_v1 = kde_entropy(zm0)
+            h_teacher_v2 = kde_entropy(zm1)
+            h_student_v1 = kde_entropy(z0)
+            h_student_v2 = kde_entropy(z1)
+            h_predictor_v1 = kde_entropy(p0)
+            h_predictor_v2 = kde_entropy(p1)
+
+            h_teacher = (h_teacher_v1 + h_teacher_v2) / 2
+            h_student = (h_student_v1 + h_student_v2) / 2
+            h_predictor = (h_predictor_v1 + h_predictor_v2) / 2
+
+            # =============================================
+            # CORRELATIONS rho^t and rho_X^t (every step, normalized)
+            # Needed for: Corollary 1, entropy/alignment dynamics
+            # =============================================
             rho = (estimate_rho_isotropic(z0, zm1) +
                    estimate_rho_isotropic(z1, zm0)) / 2
 
@@ -256,94 +421,154 @@ class BYOL(BaseMomentumMethod):
             nt = norm_t - norm_t.mean()
             rho_x = (ns @ nt) / (torch.norm(ns) * torch.norm(nt) + 1e-10)
 
-            # -- Residual on normalized (what the loss actually minimizes) --
-            residual_norm = ((zm1 - p0).norm(dim=1).mean() +
-                             (zm0 - p1).norm(dim=1).mean()) / 2
+            # =============================================
+            # VARIANCE RATIOS r and r_X (every step, normalized)
+            # Needed for: entropy/alignment dynamics interpretation
+            # =============================================
+            sigma_student = z0.var(dim=0).mean().sqrt()
+            sigma_teacher = zm0.var(dim=0).mean().sqrt()
+            r_marginal = sigma_student / (sigma_teacher + 1e-10)
+
+            cond_var_student = (z0 - z1).pow(2).mean(dim=0).mean() / 2
+            cond_var_teacher = (zm0 - zm1).pow(2).mean(dim=0).mean() / 2
+            r_X = (cond_var_student / (cond_var_teacher + 1e-10)).sqrt()
 
             # =============================================
-            # SECTION 4 METRICS: on RAW projector outputs
+            # LEMMA 2 CHECK (every step)
+            # Compare H(Z_theta^{t+1}) with H(Z_theta^t)
+            # using interpolated network to get Z_theta^{t+1}
             # =============================================
+            d = z0.shape[1]
 
-            # -- Variance ratios r and r_X --
-            sigma_student_raw = z0_raw.var(dim=0).mean().sqrt()
-            sigma_teacher_raw = zm0_raw.var(dim=0).mean().sqrt()
-            r_marginal = sigma_student_raw / (sigma_teacher_raw + 1e-10)
-
-            cond_var_student_raw = (z0_raw - z1_raw).pow(2).mean(dim=0).mean() / 2
-            cond_var_teacher_raw = (zm0_raw - zm1_raw).pow(2).mean(dim=0).mean() / 2
-            r_X = (cond_var_student_raw / (cond_var_teacher_raw + 1e-10)).sqrt()
-
-            # -- Lemma 2 check: sigma_{t+1}/sigma_t >= tau --
-            if hasattr(self, '_prev_sigma_teacher_raw') and self._prev_sigma_teacher_raw > 0:
-                lemma2_ratio = sigma_teacher_raw / self._prev_sigma_teacher_raw
-            else:
-                lemma2_ratio = torch.tensor(1.0)
-            self._prev_sigma_teacher_raw = sigma_teacher_raw.clone()
-
-            # -- Assumption 1: residual diagnostics on raw outputs --
-            residual_01_raw = zm1_raw - p0_raw
-            residual_10_raw = zm0_raw - p1_raw
-
-            residual_var_raw = residual_01_raw.var(dim=0).mean()
-
-            # Independence check: |corr(G_t, Z_phi)| should be ~0
-            # Under Gaussian residual assumption, uncorrelated => independent
-            rho_residual_student_raw = abs(estimate_rho_isotropic(
-                residual_01_raw, z0_raw))
-
-            # -- Assumption 2 check: linear interpolation of outputs --
+            # Build the interpolated (next-step) teacher
             interpolated_backbone = interpolate_network(
                 self.backbone, self.momentum_backbone, 0.99)
             interpolated_projector = interpolate_network(
                 self.projector, self.momentum_projector, 0.99)
 
+            # Forward through interpolated teacher on view 1
             X_crop = batch[1][0]
             feats_interp = interpolated_backbone(X_crop)
-            Z_interp_net = interpolated_projector(feats_interp)  # raw, no normalize
-            Z_weighted_raw = 0.99 * zm0_raw + (1 - 0.99) * z0_raw
-            interpolation_check = torch.norm(
-                Z_interp_net - Z_weighted_raw, dim=1).mean()
+            Z_interp_raw = interpolated_projector(feats_interp)
+            z_interp = F.normalize(Z_interp_raw, dim=-1)
+
+            # Assumption 2 check: ||z_theta^{t+1} - (tau * z_theta^t + (1-tau) * z_phi^t)||
+            Z_weighted = 0.99 * zm0 + (1 - 0.99) * z0
+            interpolation_check = torch.norm(z_interp - Z_weighted, dim=1).mean()
+
+            # Lemma 2 entropy check: H(Z_theta^{t+1}) - H(Z_theta^t) >= d * log(tau)
+            h_teacher_next = kde_entropy(z_interp)
+            lemma2_entropy_diff = h_teacher_next - h_teacher_v1
+            lemma2_threshold = d * math.log(0.99)  # d * log(tau)
+            lemma2_holds = (lemma2_entropy_diff >= lemma2_threshold).float()
+
+            # Also track sigma ratio as simpler check
+            if hasattr(self, '_prev_sigma_teacher') and self._prev_sigma_teacher > 0:
+                lemma2_sigma_ratio = sigma_teacher / self._prev_sigma_teacher
+            else:
+                lemma2_sigma_ratio = torch.tensor(1.0)
+            self._prev_sigma_teacher = sigma_teacher.clone()
+
+            # =============================================
+            # ASSUMPTION 1: RESIDUAL DIAGNOSTICS (every step, normalized)
+            # G_t := Z_theta - h_psi(Z_phi), need: small var, uncorrelated with Z_phi
+            # Note: H(tau * G_t) = H(G_t) + d*log(tau) holds for ANY continuous G_t
+            # so Gaussianity of G_t is NOT required. Only independence from Z_phi.
+            # =============================================
+            residual_01 = zm1 - p0
+            residual_10 = zm0 - p1
+
+            residual_norm = (residual_01.norm(dim=1).mean() +
+                             residual_10.norm(dim=1).mean()) / 2
+            residual_var = residual_01.var(dim=0).mean()
+
+            # Under any distributional assumption on G_t:
+            # uncorrelated + small variance is sufficient
+            rho_residual_student = abs(estimate_rho_isotropic(residual_01, z0))
+
+            # =============================================
+            # SECTION 3.2: H(Z_theta) ≈ H(h_psi(Z_phi))  (Lemma 1)
+            # and BYOL loss ≈ H(Z_theta | X)
+            # =============================================
+            # H(h_psi(Z_phi)) should track H(Z_theta) when prediction loss is small
+            h_entropy_gap = abs(h_teacher - h_predictor)
+
+            # BYOL loss (cross-view MSE) as proxy for H(Z_theta | Z_phi, X)
+            byol_loss_proxy = ((zm1 - p0).pow(2).sum(dim=1).mean() +
+                               (zm0 - p1).pow(2).sum(dim=1).mean()) / 2
+
+            # H(Z_theta | X) estimated via alignment (same-input, different augmentations)
+            h_teacher_given_x = (zm0 - zm1).pow(2).sum(dim=1).mean() / 2
+
+            # =============================================
+            # THIN-SHELL CHECK (every step, raw outputs)
+            # CV of norms: small CV => normalization ≈ scaling
+            # Justifies that Gaussian analysis transfers to the sphere
+            # (Wegner 2021, Thm 1.2; Betser et al. 2026, Assumption 2)
+            # =============================================
+            norms_raw = torch.norm(zm0_raw, dim=1)
+            cv_norms_teacher = norms_raw.std() / (norms_raw.mean() + 1e-10)
+
+            norms_student_raw = torch.norm(z0_raw, dim=1)
+            cv_norms_student = norms_student_raw.std() / (norms_student_raw.mean() + 1e-10)
 
         metrics = {
-            # Section 3: on normalized
+            # Core training
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
             "train_z_std_teacher": z_std_teacher,
+            # Uniformity-based entropy (for backward compat with existing plots)
             "train_student_entropy": student_entropy,
             "train_teacher_entropy": teacher_entropy,
             "train_predictor_entropy": predictor_entropy,
             "train_student_alignment": student_alignment,
             "train_teacher_alignment": teacher_alignment,
             "train_predictor_alignment": predictor_alignment,
+            # KDE entropy estimates (proper estimator)
+            "h_teacher": h_teacher,
+            "h_student": h_student,
+            "h_predictor": h_predictor,
+            # Section 3.2: entropy proximity and loss-alignment comparison
+            "h_entropy_gap": h_entropy_gap,
+            "byol_loss_proxy": byol_loss_proxy,
+            "h_teacher_given_x": h_teacher_given_x,
+            # Correlations (Corollary 1)
             "rho": rho,
             "rho_x": rho_x,
-            "residual_norm": residual_norm,
-            # Section 4: on raw outputs
+            # Variance ratios (entropy/alignment dynamics)
             "r_marginal": r_marginal,
             "r_X": r_X,
-            "sigma_student_raw": sigma_student_raw,
-            "sigma_teacher_raw": sigma_teacher_raw,
-            "lemma2_sigma_ratio": lemma2_ratio,
-            "residual_var_raw": residual_var_raw,
-            "rho_residual_student_raw": rho_residual_student_raw,
+            "sigma_student": sigma_student,
+            "sigma_teacher": sigma_teacher,
+            # Lemma 2
+            "lemma2_entropy_diff": lemma2_entropy_diff,
+            "lemma2_threshold": lemma2_threshold,
+            "lemma2_holds": lemma2_holds,
+            "lemma2_sigma_ratio": lemma2_sigma_ratio,
+            # Assumption 1 (residuals)
+            "residual_norm": residual_norm,
+            "residual_var": residual_var,
+            "rho_residual_student": rho_residual_student,
+            # Assumption 2 (interpolation)
             "interpolation_check": interpolation_check,
+            # Thin-shell concentration
+            "cv_norms_teacher": cv_norms_teacher,
+            "cv_norms_student": cv_norms_student,
         }
 
         # =============================================
         # EXPENSIVE DIAGNOSTICS (every N steps)
-        # All on RAW outputs (Section 4 assumptions)
         # =============================================
         if batch_idx % 100 == 0:
             with torch.no_grad():
 
-                # -- Per-dimension rho on raw outputs --
-                # Needed for: Corollary 1 under diagonal covariance
-                z0r_c = z0_raw - z0_raw.mean(dim=0, keepdim=True)
-                zm1r_c = zm1_raw - zm1_raw.mean(dim=0, keepdim=True)
-                B = z0_raw.shape[0]
-                cov_per_dim = (z0r_c * zm1r_c).sum(dim=0) / (B - 1)
-                std_z = z0r_c.pow(2).sum(dim=0).div(B - 1).sqrt()
-                std_zm = zm1r_c.pow(2).sum(dim=0).div(B - 1).sqrt()
+                # -- Per-dimension rho (Corollary 1 under diagonal covariance) --
+                z0_c = z0 - z0.mean(dim=0, keepdim=True)
+                zm1_c = zm1 - zm1.mean(dim=0, keepdim=True)
+                B = z0.shape[0]
+                cov_per_dim = (z0_c * zm1_c).sum(dim=0) / (B - 1)
+                std_z = z0_c.pow(2).sum(dim=0).div(B - 1).sqrt()
+                std_zm = zm1_c.pow(2).sum(dim=0).div(B - 1).sqrt()
                 rho_per_dim = cov_per_dim / (std_z * std_zm + 1e-10)
                 rho_np = rho_per_dim.cpu().numpy()
 
@@ -351,46 +576,73 @@ class BYOL(BaseMomentumMethod):
                 metrics["rho_diag_min"] = float(rho_np.min())
                 metrics["rho_frac_positive"] = float((rho_np > 0).mean())
 
-                # -- Diagonality and Gaussianity checks on raw outputs --
-                residual_01_raw_detached = residual_01_raw  # already in no_grad
-
-                for name, tensor in [("student", z0_raw),
-                                     ("teacher", zm0_raw),
-                                     ("residual", residual_01_raw_detached)]:
+                # =============================================
+                # ASSUMPTION 4: Per-coordinate Gaussianity tests
+                # Following Betser et al. (ICLR 2026):
+                #   - Anderson-Darling: AD < 0.752 => cannot reject Gaussianity
+                #   - D'Agostino-Pearson: p > 0.05 => cannot reject Gaussianity
+                # Justified by Maxwell-Poincaré spherical CLT:
+                #   uniform-like distributions on S^{d-1} have Gaussian marginals
+                # =============================================
+                for name, tensor in [("student", z0), ("teacher", zm0)]:
                     t_np = tensor.detach().cpu().numpy()
-                    n, d = t_np.shape
+                    n, d_dim = t_np.shape
+
+                    ad_stats = []
+                    dp_pvals = []
+
+                    for j in range(d_dim):
+                        col = t_np[:, j]
+
+                        # Anderson-Darling test
+                        from scipy.stats import anderson, normaltest
+                        ad_result = anderson(col, dist='norm')
+                        ad_stats.append(ad_result.statistic)
+
+                        # D'Agostino-Pearson test
+                        if n >= 20:  # minimum sample size for normaltest
+                            _, dp_pval = normaltest(col)
+                            dp_pvals.append(dp_pval)
+
+                    ad_stats = np.array(ad_stats)
+                    dp_pvals = np.array(dp_pvals)
+
+                    # AD: fraction of coords where AD < 0.752 (Gaussian acceptance)
+                    metrics[f"{name}_ad_avg"] = float(ad_stats.mean())
+                    metrics[f"{name}_ad_frac_gaussian"] = float(
+                        (ad_stats < 0.752).mean())
+
+                    # DP: fraction of coords where p > 0.05 (cannot reject Gaussian)
+                    if len(dp_pvals) > 0:
+                        metrics[f"{name}_dp_avg_pval"] = float(dp_pvals.mean())
+                        metrics[f"{name}_dp_frac_gaussian"] = float(
+                            (dp_pvals > 0.05).mean())
+
+                # =============================================
+                # DIAGONAL CHECK: mean absolute correlation vs sphere baseline
+                # On S^{d-1}, expected pairwise correlation = -1/(d-1)
+                # If observed |corr| ≈ 1/(d-1), dimensions are as uncorrelated
+                # as the sphere geometry allows => "diagonal" in spherical sense
+                # =============================================
+                for name, tensor in [("student", z0), ("teacher", zm0)]:
+                    t_np = tensor.detach().cpu().numpy()
+                    n, d_dim = t_np.shape
                     t_centered = t_np - t_np.mean(axis=0, keepdims=True)
-                    cov = (t_centered.T @ t_centered) / (n - 1)
+                    stds = t_centered.std(axis=0, keepdims=True) + 1e-10
+                    t_standardized = t_centered / stds
 
-                    # --- Diagonality: off-diagonal Frobenius ratio ---
-                    # diagonal => 0, full covariance => large
-                    diag_part = np.diag(np.diag(cov))
-                    offdiag_frob = np.linalg.norm(cov - diag_part, 'fro')
-                    total_frob = np.linalg.norm(cov, 'fro')
-                    metrics[f"{name}_offdiag_frob_ratio"] = float(
-                        offdiag_frob / (total_frob + 1e-10))
+                    # Correlation matrix
+                    corr = (t_standardized.T @ t_standardized) / (n - 1)
+                    np.fill_diagonal(corr, 0)
 
-                    # --- Mardia's multivariate kurtosis ratio ---
-                    # Gaussian => ratio = 1.0
-                    cov_reg = cov + 1e-6 * np.eye(d)
-                    cov_inv = np.linalg.inv(cov_reg)
-                    mahal_sq = np.sum(
-                        (t_centered @ cov_inv) * t_centered, axis=1)
-                    mardia_kurtosis = np.mean(mahal_sq ** 2)
-                    mardia_expected = d * (d + 2)
-                    metrics[f"{name}_mardia_kurtosis_ratio"] = float(
-                        mardia_kurtosis / mardia_expected)
+                    mean_abs_corr = np.abs(corr).mean()
+                    sphere_baseline = 1.0 / (d_dim - 1)
 
-                    # --- Henze-Zirkler test ---
-                    # Raw outputs are full-rank, so HZ should not fail.
-                    # Note: HZ is very powerful in high-d; low p-values
-                    # are expected even for "approximately Gaussian" data.
-                    try:
-                        _, hz_pvalue, _ = pg.multivariate_normality(
-                            t_np, alpha=0.05)
-                        metrics[f"{name}_hz_pvalue"] = float(hz_pvalue)
-                    except Exception:
-                        metrics[f"{name}_hz_pvalue"] = float('nan')
+                    metrics[f"{name}_mean_abs_corr"] = float(mean_abs_corr)
+                    metrics[f"{name}_sphere_corr_baseline"] = float(sphere_baseline)
+                    # Ratio close to 1 => correlations match sphere geometry
+                    metrics[f"{name}_corr_ratio_to_baseline"] = float(
+                        mean_abs_corr / (sphere_baseline + 1e-10))
 
         self.log_dict(metrics, on_epoch=True, sync_dist=False)
 
