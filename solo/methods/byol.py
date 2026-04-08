@@ -34,8 +34,6 @@ from solo.utils.momentum import initialize_momentum_params
 from scipy.stats import anderson, normaltest
 import math
 
-import penguin as pg
-
 import torch.nn.init as init
 
 def kaiming_init(module):
