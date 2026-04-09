@@ -605,7 +605,8 @@ class BYOL(BaseMomentumMethod):
                     Sigma_cross_sym = (Sigma_cross + Sigma_cross.T) / 2
 
                     # Eigenvalues
-                    eigvals = torch.linalg.eigvalsh(Sigma_cross_sym.float())
+                    eigvals = np.linalg.eigvalsh(Sigma_cross_sym.detach().cpu().numpy())
+                    eigvals = torch.from_numpy(eigvals).to(Sigma_cross_sym.device)
 
                     min_eigval = eigvals.min().item()
                     frac_positive = (eigvals > 0).float().mean().item()
