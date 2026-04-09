@@ -605,7 +605,7 @@ class BYOL(BaseMomentumMethod):
                     Sigma_cross = (zt_c.T @ zs_c) / (n - 1)  # cross-covariance
 
                     # Build A = (1 - tau) Σ_phi + 2 tau C
-                    A = (1 - self.tau) * Sigma_phi + 2 * self.tau * Sigma_cross
+                    A = (1 - 0.99) * Sigma_phi + 2 * 0.99 * Sigma_cross
 
                     # Symmetrize (critical for PSD test)
                     A = 0.5 * (A + A.T)
