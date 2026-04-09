@@ -347,7 +347,7 @@ class BYOL(BaseMomentumMethod):
         # ------- diagnostics (no grad) -------
         with torch.no_grad():
 
-            # L2-normalize representations (on the hypersphere)
+            # L2-normalized representations (on the hypersphere)
             z0 = F.normalize(Z[0], dim=-1)
             z1 = F.normalize(Z[1], dim=-1)
             zm0 = F.normalize(Z_momentum[0], dim=-1)
@@ -360,6 +360,8 @@ class BYOL(BaseMomentumMethod):
             z1_raw = Z[1]
             zm0_raw = Z_momentum[0]
             zm1_raw = Z_momentum[1]
+            p0_raw = P[0]
+            p1_raw = P[1]
 
             # =============================================
             # CORE TRAINING METRICS (every step, normalized)
@@ -377,19 +379,12 @@ class BYOL(BaseMomentumMethod):
 
             # =============================================
             # KDE ENTROPY ESTIMATOR (every step, normalized)
-            # H(Z) ≈ -1/N sum_i log (1/(N-1) sum_{j!=i} exp(-||z_i - z_j||^2 / (2*sigma^2)))
-            # This is the resubstitution entropy estimator with Gaussian kernel.
-            # We use sigma=1 for consistency with the BYOL loss derivation.
             # =============================================
             def kde_entropy(z, sigma=1.0):
                 """KDE entropy estimator on normalized representations."""
-                # z: [B, d], assumed l2-normalized
-                # Pairwise squared distances
-                dists_sq = torch.cdist(z, z, p=2).pow(2)  # [B, B]
+                dists_sq = torch.cdist(z, z, p=2).pow(2)
                 B = z.shape[0]
-                # Mask diagonal
                 mask = ~torch.eye(B, dtype=torch.bool, device=z.device)
-                # Log-sum-exp over non-diagonal entries
                 log_density = torch.logsumexp(
                     -dists_sq[mask].view(B, B - 1) / (2 * sigma ** 2), dim=1
                 ) - math.log(B - 1)
@@ -408,7 +403,6 @@ class BYOL(BaseMomentumMethod):
 
             # =============================================
             # CORRELATIONS rho^t and rho_X^t (every step, normalized)
-            # Needed for: Corollary 1, entropy/alignment dynamics
             # =============================================
             rho = (estimate_rho_isotropic(z0, zm1) +
                    estimate_rho_isotropic(z1, zm0)) / 2
@@ -421,7 +415,6 @@ class BYOL(BaseMomentumMethod):
 
             # =============================================
             # VARIANCE RATIOS r and r_X (every step, normalized)
-            # Needed for: entropy/alignment dynamics interpretation
             # =============================================
             sigma_student = z0.var(dim=0).mean().sqrt()
             sigma_teacher = zm0.var(dim=0).mean().sqrt()
@@ -433,34 +426,38 @@ class BYOL(BaseMomentumMethod):
 
             # =============================================
             # LEMMA 2 CHECK (every step)
-            # Compare H(Z_theta^{t+1}) with H(Z_theta^t)
-            # using interpolated network to get Z_theta^{t+1}
+            # Build interpolated teacher, check entropy condition
             # =============================================
             d = z0.shape[1]
 
-            # Build the interpolated (next-step) teacher
             interpolated_backbone = interpolate_network(
                 self.backbone, self.momentum_backbone, 0.99)
             interpolated_projector = interpolate_network(
                 self.projector, self.momentum_projector, 0.99)
 
-            # Forward through interpolated teacher on view 1
             X_crop = batch[1][0]
             feats_interp = interpolated_backbone(X_crop)
             Z_interp_raw = interpolated_projector(feats_interp)
             z_interp = F.normalize(Z_interp_raw, dim=-1)
 
-            # Assumption 2 check: ||z_theta^{t+1} - (tau * z_theta^t + (1-tau) * z_phi^t)||
-            Z_weighted = 0.99 * zm0 + (1 - 0.99) * z0
-            interpolation_check = torch.norm(z_interp - Z_weighted, dim=1).mean()
+            # Assumption 3 check: linear interpolation on RAW outputs
+            # ||f_{theta^{t+1}}(x) - (tau * f_{theta^t}(x) + (1-tau) * f_{phi^t}(x))||
+            Z_weighted_raw = 0.99 * zm0_raw + (1 - 0.99) * z0_raw
+            interpolation_check_raw = torch.norm(
+                Z_interp_raw - Z_weighted_raw, dim=1).mean()
 
-            # Lemma 2 entropy check: H(Z_theta^{t+1}) - H(Z_theta^t) >= d * log(tau)
+            # Also check on normalized (for reference)
+            Z_weighted_norm = 0.99 * zm0 + (1 - 0.99) * z0
+            interpolation_check_norm = torch.norm(
+                z_interp - Z_weighted_norm, dim=1).mean()
+
+            # Lemma 2 entropy check on normalized
             h_teacher_next = kde_entropy(z_interp)
             lemma2_entropy_diff = h_teacher_next - h_teacher_v1
-            lemma2_threshold = d * math.log(0.99)  # d * log(tau)
+            lemma2_threshold = d * math.log(0.99)
             lemma2_holds = (lemma2_entropy_diff >= lemma2_threshold).float()
 
-            # Also track sigma ratio as simpler check
+            # Sigma ratio check
             if hasattr(self, '_prev_sigma_teacher') and self._prev_sigma_teacher > 0:
                 lemma2_sigma_ratio = sigma_teacher / self._prev_sigma_teacher
             else:
@@ -468,10 +465,10 @@ class BYOL(BaseMomentumMethod):
             self._prev_sigma_teacher = sigma_teacher.clone()
 
             # =============================================
-            # ASSUMPTION 1: RESIDUAL DIAGNOSTICS (every step, normalized)
-            # G_t := Z_theta - h_psi(Z_phi), need: small var, uncorrelated with Z_phi
-            # Note: H(tau * G_t) = H(G_t) + d*log(tau) holds for ANY continuous G_t
-            # so Gaussianity of G_t is NOT required. Only independence from Z_phi.
+            # ASSUMPTION 1: RESIDUAL DIAGNOSTICS (every step)
+            # G_t := Z_theta - h_psi(Z_phi)
+            # Check independence between Z_phi and G_t
+            # H(tau * G_t) = H(G_t) + d*log(tau) for ANY continuous G_t
             # =============================================
             residual_01 = zm1 - p0
             residual_10 = zm0 - p1
@@ -480,29 +477,35 @@ class BYOL(BaseMomentumMethod):
                              residual_10.norm(dim=1).mean()) / 2
             residual_var = residual_01.var(dim=0).mean()
 
-            # Under any distributional assumption on G_t:
-            # uncorrelated + small variance is sufficient
+            # Independence: |corr(G_t, Z_phi)| on normalized
             rho_residual_student = abs(estimate_rho_isotropic(residual_01, z0))
 
             # =============================================
-            # SECTION 3.2: H(Z_theta) ≈ H(h_psi(Z_phi))  (Lemma 1)
-            # and BYOL loss ≈ H(Z_theta | X)
+            # ASSUMPTION 1 (alternative formulation):
+            # Check independence between Z_theta and (1-tau)*(Z_phi - Z_theta)
+            # This is the "innovation" that the EMA adds from the student.
+            # If independent of Z_theta, the EMA step purely adds new info.
             # =============================================
-            # H(h_psi(Z_phi)) should track H(Z_theta) when prediction loss is small
+            innovation_01 = (1 - 0.99) * (z0 - zm0)  # (1-tau) * (Z_phi - Z_theta)
+            rho_innovation_teacher = abs(estimate_rho_isotropic(innovation_01, zm0))
+
+            # Also on raw
+            innovation_01_raw = (1 - 0.99) * (z0_raw - zm0_raw)
+            rho_innovation_teacher_raw = abs(estimate_rho_isotropic(
+                innovation_01_raw, zm0_raw))
+
+            # =============================================
+            # SECTION 3.2: H(Z_theta) ≈ H(h_psi(Z_phi))
+            # =============================================
             h_entropy_gap = abs(h_teacher - h_predictor)
 
-            # BYOL loss (cross-view MSE) as proxy for H(Z_theta | Z_phi, X)
-            byol_loss_proxy = ((zm1 - p0).pow(2).sum(dim=1).mean() +
-                               (zm0 - p1).pow(2).sum(dim=1).mean()) / 2
-
-            # H(Z_theta | X) estimated via alignment (same-input, different augmentations)
-            h_teacher_given_x = (zm0 - zm1).pow(2).sum(dim=1).mean() / 2
+            # Cross-prediction MSE vs teacher self-alignment
+            cross_prediction_mse = ((zm1 - p0).pow(2).sum(dim=1).mean() +
+                                    (zm0 - p1).pow(2).sum(dim=1).mean()) / 2
+            teacher_self_prediction_mse = (zm0 - zm1).pow(2).sum(dim=1).mean() / 2
 
             # =============================================
             # THIN-SHELL CHECK (every step, raw outputs)
-            # CV of norms: small CV => normalization ≈ scaling
-            # Justifies that Gaussian analysis transfers to the sphere
-            # (Wegner 2021, Thm 1.2; Betser et al. 2026, Assumption 2)
             # =============================================
             norms_raw = torch.norm(zm0_raw, dim=1)
             cv_norms_teacher = norms_raw.std() / (norms_raw.mean() + 1e-10)
@@ -515,25 +518,25 @@ class BYOL(BaseMomentumMethod):
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
             "train_z_std_teacher": z_std_teacher,
-            # Uniformity-based entropy (for backward compat with existing plots)
+            # Uniformity-based entropy
             "train_student_entropy": student_entropy,
             "train_teacher_entropy": teacher_entropy,
             "train_predictor_entropy": predictor_entropy,
             "train_student_alignment": student_alignment,
             "train_teacher_alignment": teacher_alignment,
             "train_predictor_alignment": predictor_alignment,
-            # KDE entropy estimates (proper estimator)
+            # KDE entropy
             "h_teacher": h_teacher,
             "h_student": h_student,
             "h_predictor": h_predictor,
-            # Section 3.2: entropy proximity and loss-alignment comparison
+            # Section 3.2
             "h_entropy_gap": h_entropy_gap,
-            "byol_loss_proxy": byol_loss_proxy,
-            "h_teacher_given_x": h_teacher_given_x,
-            # Correlations (Corollary 1)
+            "cross_prediction_mse": cross_prediction_mse,
+            "teacher_self_prediction_mse": teacher_self_prediction_mse,
+            # Correlations
             "rho": rho,
             "rho_x": rho_x,
-            # Variance ratios (entropy/alignment dynamics)
+            # Variance ratios
             "r_marginal": r_marginal,
             "r_X": r_X,
             "sigma_student": sigma_student,
@@ -547,9 +550,13 @@ class BYOL(BaseMomentumMethod):
             "residual_norm": residual_norm,
             "residual_var": residual_var,
             "rho_residual_student": rho_residual_student,
-            # Assumption 2 (interpolation)
-            "interpolation_check": interpolation_check,
-            # Thin-shell concentration
+            # Assumption 1 (innovation independence)
+            "rho_innovation_teacher": rho_innovation_teacher,
+            "rho_innovation_teacher_raw": rho_innovation_teacher_raw,
+            # Assumption 3 (interpolation, raw)
+            "interpolation_check_raw": interpolation_check_raw,
+            "interpolation_check_norm": interpolation_check_norm,
+            # Thin-shell
             "cv_norms_teacher": cv_norms_teacher,
             "cv_norms_student": cv_norms_student,
         }
@@ -560,7 +567,7 @@ class BYOL(BaseMomentumMethod):
         if batch_idx % 100 == 0:
             with torch.no_grad():
 
-                # -- Per-dimension rho (Corollary 1 under diagonal covariance) --
+                # -- Per-dimension rho (Corollary 1) --
                 z0_c = z0 - z0.mean(dim=0, keepdim=True)
                 zm1_c = zm1 - zm1.mean(dim=0, keepdim=True)
                 B = z0.shape[0]
@@ -575,52 +582,102 @@ class BYOL(BaseMomentumMethod):
                 metrics["rho_frac_positive"] = float((rho_np > 0).mean())
 
                 # =============================================
-                # ASSUMPTION 4: Per-coordinate Gaussianity tests
-                # Following Betser et al. (ICLR 2026):
-                #   - Anderson-Darling: AD < 0.752 => cannot reject Gaussianity
-                #   - D'Agostino-Pearson: p > 0.05 => cannot reject Gaussianity
-                # Justified by Maxwell-Poincaré spherical CLT:
-                #   uniform-like distributions on S^{d-1} have Gaussian marginals
+                # CROSS-COVARIANCE PSD CHECK: Cov(Z_theta, Z_phi) >= 0
+                # If all eigenvalues of Sigma_{theta,phi} are >= 0,
+                # the cross-covariance is positive semi-definite.
+                # This is a stronger condition than rho > 0 and
+                # directly relates to the full-covariance entropy dynamics.
                 # =============================================
-                for name, tensor in [("student", z0), ("teacher", zm0)]:
+                for suffix, za, zb in [
+                    ("norm", z0, zm1),  # student v1, teacher v2
+                    ("raw", z0_raw, zm1_raw),
+                ]:
+                    za_c = za - za.mean(dim=0, keepdim=True)
+                    zb_c = zb - zb.mean(dim=0, keepdim=True)
+                    n = za.shape[0]
+                    d_dim = za.shape[1]
+
+                    # Cross-covariance matrix [d, d]
+                    Sigma_cross = (za_c.T @ zb_c) / (n - 1)
+
+                    # Symmetrize: (Sigma_cross + Sigma_cross^T) / 2
+                    # This is the matrix that appears in the variance dynamics
+                    Sigma_cross_sym = (Sigma_cross + Sigma_cross.T) / 2
+
+                    # Eigenvalues
+                    eigvals = torch.linalg.eigvalsh(Sigma_cross_sym)
+
+                    min_eigval = eigvals.min().item()
+                    frac_positive = (eigvals > 0).float().mean().item()
+                    frac_nonneg = (eigvals >= -1e-8).float().mean().item()
+
+                    metrics[f"crosscov_min_eigval_{suffix}"] = min_eigval
+                    metrics[f"crosscov_frac_positive_{suffix}"] = frac_positive
+                    metrics[f"crosscov_frac_nonneg_{suffix}"] = frac_nonneg
+
+                    # Trace (should be positive if overall correlation is positive)
+                    metrics[f"crosscov_trace_{suffix}"] = Sigma_cross_sym.trace().item()
+
+                # =============================================
+                # GAUSSIANITY CHECKS ON RAW OUTPUTS
+                # Random projections + Anderson-Darling (Cramer-Wold)
+                # Per-coordinate + Anderson-Darling / D'Agostino-Pearson
+                # Following Betser et al. (ICLR 2026)
+                # =============================================
+                from scipy.stats import anderson, normaltest
+
+                num_projections = 30
+
+                for name, tensor in [("student_raw", z0_raw),
+                                     ("teacher_raw", zm0_raw)]:
                     t_np = tensor.detach().cpu().numpy()
-                    n, d_dim = t_np.shape
+                    n_samples, d_dim = t_np.shape
+                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
 
-                    ad_stats = []
-                    dp_pvals = []
+                    # --- Random projection Gaussianity (Cramer-Wold) ---
+                    proj_ad_stats = []
+                    for _ in range(num_projections):
+                        v = np.random.randn(d_dim)
+                        v /= np.linalg.norm(v)
+                        proj = t_centered @ v
+                        proj = (proj - proj.mean()) / (proj.std() + 1e-10)
+                        ad_result = anderson(proj, dist='norm')
+                        proj_ad_stats.append(ad_result.statistic)
 
+                    proj_ad_stats = np.array(proj_ad_stats)
+                    metrics[f"{name}_proj_ad_avg"] = float(proj_ad_stats.mean())
+                    metrics[f"{name}_proj_ad_median"] = float(np.median(proj_ad_stats))
+                    metrics[f"{name}_proj_ad_frac_gaussian"] = float(
+                        (proj_ad_stats < 0.752).mean())
+
+                    # --- Per-coordinate Gaussianity ---
+                    coord_ad_stats = []
+                    coord_dp_pvals = []
                     for j in range(d_dim):
                         col = t_np[:, j]
+                        col_std = (col - col.mean()) / (col.std() + 1e-10)
 
-                        # Anderson-Darling test
-                        from scipy.stats import anderson, normaltest
-                        ad_result = anderson(col, dist='norm')
-                        ad_stats.append(ad_result.statistic)
+                        ad_result = anderson(col_std, dist='norm')
+                        coord_ad_stats.append(ad_result.statistic)
 
-                        # D'Agostino-Pearson test
-                        if n >= 20:  # minimum sample size for normaltest
+                        if n_samples >= 20:
                             _, dp_pval = normaltest(col)
-                            dp_pvals.append(dp_pval)
+                            coord_dp_pvals.append(dp_pval)
 
-                    ad_stats = np.array(ad_stats)
-                    dp_pvals = np.array(dp_pvals)
+                    coord_ad_stats = np.array(coord_ad_stats)
+                    metrics[f"{name}_coord_ad_avg"] = float(coord_ad_stats.mean())
+                    metrics[f"{name}_coord_ad_frac_gaussian"] = float(
+                        (coord_ad_stats < 0.752).mean())
 
-                    # AD: fraction of coords where AD < 0.752 (Gaussian acceptance)
-                    metrics[f"{name}_ad_avg"] = float(ad_stats.mean())
-                    metrics[f"{name}_ad_frac_gaussian"] = float(
-                        (ad_stats < 0.752).mean())
-
-                    # DP: fraction of coords where p > 0.05 (cannot reject Gaussian)
-                    if len(dp_pvals) > 0:
-                        metrics[f"{name}_dp_avg_pval"] = float(dp_pvals.mean())
-                        metrics[f"{name}_dp_frac_gaussian"] = float(
-                            (dp_pvals > 0.05).mean())
+                    if len(coord_dp_pvals) > 0:
+                        coord_dp_pvals = np.array(coord_dp_pvals)
+                        metrics[f"{name}_coord_dp_avg_pval"] = float(
+                            coord_dp_pvals.mean())
+                        metrics[f"{name}_coord_dp_frac_gaussian"] = float(
+                            (coord_dp_pvals > 0.05).mean())
 
                 # =============================================
-                # DIAGONAL CHECK: mean absolute correlation vs sphere baseline
-                # On S^{d-1}, expected pairwise correlation = -1/(d-1)
-                # If observed |corr| ≈ 1/(d-1), dimensions are as uncorrelated
-                # as the sphere geometry allows => "diagonal" in spherical sense
+                # DIAGONAL CHECK on normalized (sphere geometry)
                 # =============================================
                 for name, tensor in [("student", z0), ("teacher", zm0)]:
                     t_np = tensor.detach().cpu().numpy()
@@ -629,7 +686,6 @@ class BYOL(BaseMomentumMethod):
                     stds = t_centered.std(axis=0, keepdims=True) + 1e-10
                     t_standardized = t_centered / stds
 
-                    # Correlation matrix
                     corr = (t_standardized.T @ t_standardized) / (n - 1)
                     np.fill_diagonal(corr, 0)
 
@@ -638,118 +694,8 @@ class BYOL(BaseMomentumMethod):
 
                     metrics[f"{name}_mean_abs_corr"] = float(mean_abs_corr)
                     metrics[f"{name}_sphere_corr_baseline"] = float(sphere_baseline)
-                    # Ratio close to 1 => correlations match sphere geometry
                     metrics[f"{name}_corr_ratio_to_baseline"] = float(
                         mean_abs_corr / (sphere_baseline + 1e-10))
-
-                # =============================================
-                # GENERAL GAUSSIAN ENTROPY DYNAMICS CHECK
-                # H(Z_theta^{t+1}) - H(Z_theta^t) = 0.5 * log det(Sigma_{t+1} / Sigma_t)
-                # No isotropy or diagonal assumption needed — only Gaussianity.
-                # Uses interpolated teacher for Sigma_{t+1}.
-                # Condition for Lemma 2: >= d * log(tau)
-                # =============================================
-                def safe_log_det_ratio(z_next, z_curr):
-                    """Compute 0.5 * log(det(Sigma_next) / det(Sigma_curr))
-                    using Cholesky for numerical stability."""
-                    n = z_curr.shape[0]
-                    d_dim = z_curr.shape[1]
-
-                    # Center
-                    z_curr_c = z_curr - z_curr.mean(dim=0, keepdim=True)
-                    z_next_c = z_next - z_next.mean(dim=0, keepdim=True)
-
-                    # Sample covariance matrices
-                    Sigma_curr = (z_curr_c.T @ z_curr_c) / (n - 1)
-                    Sigma_next = (z_next_c.T @ z_next_c) / (n - 1)
-
-                    # Regularize for numerical stability
-                    reg = 1e-6 * torch.eye(d_dim, device=z_curr.device)
-                    Sigma_curr = Sigma_curr + reg
-                    Sigma_next = Sigma_next + reg
-
-                    # log det via Cholesky: log det(A) = 2 * sum(log(diag(chol(A))))
-                    try:
-                        L_curr = torch.linalg.cholesky(Sigma_curr)
-                        L_next = torch.linalg.cholesky(Sigma_next)
-                        log_det_curr = 2 * torch.log(torch.diag(L_curr)).sum()
-                        log_det_next = 2 * torch.log(torch.diag(L_next)).sum()
-                        return 0.5 * (log_det_next - log_det_curr)
-                    except Exception:
-                        return torch.tensor(float('nan'))
-
-                # z_interp is already computed above (interpolated teacher on view 1)
-                # zm0 is current teacher on view 1
-                logdet_entropy_diff = safe_log_det_ratio(z_interp, zm0)
-                d_dim = zm0.shape[1]
-                logdet_threshold = d_dim * math.log(0.99)  # d * log(tau)
-                logdet_lemma2_holds = (logdet_entropy_diff >= logdet_threshold).float()
-
-                metrics["logdet_entropy_diff"] = logdet_entropy_diff
-                metrics["logdet_threshold"] = logdet_threshold
-                metrics["logdet_lemma2_holds"] = logdet_lemma2_holds
-
-                # Also track the actual log-determinants for plotting
-                n = zm0.shape[0]
-                zm0_c = zm0 - zm0.mean(dim=0, keepdim=True)
-                Sigma_teacher = (zm0_c.T @ zm0_c) / (n - 1)
-                reg = 1e-6 * torch.eye(d_dim, device=zm0.device)
-                try:
-                    L_teacher = torch.linalg.cholesky(Sigma_teacher + reg)
-                    log_det_teacher = 2 * torch.log(torch.diag(L_teacher)).sum()
-                    metrics["teacher_log_det"] = log_det_teacher.item()
-                    # Effective rank from eigenvalues
-                    eigvals = torch.linalg.eigvalsh(Sigma_teacher + reg)
-                    eigvals_pos = eigvals[eigvals > 1e-10]
-                    p = eigvals_pos / eigvals_pos.sum()
-                    effective_rank = torch.exp(-torch.sum(p * torch.log(p)))
-                    metrics["teacher_effective_rank"] = effective_rank.item()
-                except Exception:
-                    metrics["teacher_log_det"] = float('nan')
-                    metrics["teacher_effective_rank"] = float('nan')
-
-                # =============================================
-                # GAUSSIANITY CHECK VIA RANDOM PROJECTIONS
-                # Cramer-Wold theorem: X is multivariate Gaussian iff
-                # all 1D projections v^T X are univariate Gaussian.
-                # We test K random projections using Anderson-Darling
-                # (following Betser et al. 2026).
-                # This works on normalized representations and avoids
-                # issues with multivariate tests (HZ, Mardia) on the sphere.
-                # =============================================
-                from scipy.stats import anderson
-
-                num_projections = 30
-
-                for name, tensor in [("student", z0), ("teacher", zm0)]:
-                    t_np = tensor.detach().cpu().numpy()
-                    n_samples, d_dim = t_np.shape
-                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
-
-                    ad_stats = []
-                    for _ in range(num_projections):
-                        # Random unit vector
-                        v = np.random.randn(d_dim)
-                        v /= np.linalg.norm(v)
-
-                        # Project
-                        proj = t_centered @ v  # [n_samples]
-
-                        # Standardize
-                        proj = (proj - proj.mean()) / (proj.std() + 1e-10)
-
-                        # Anderson-Darling test
-                        ad_result = anderson(proj, dist='norm')
-                        ad_stats.append(ad_result.statistic)
-
-                    ad_stats = np.array(ad_stats)
-
-                    # AD < 0.752 => cannot reject Gaussianity at 5% level
-                    metrics[f"{name}_proj_ad_avg"] = float(ad_stats.mean())
-                    metrics[f"{name}_proj_ad_frac_gaussian"] = float(
-                        (ad_stats < 0.752).mean())
-                    # Also report median (more robust to outlier projections)
-                    metrics[f"{name}_proj_ad_median"] = float(np.median(ad_stats))
 
         self.log_dict(metrics, on_epoch=True, sync_dist=False)
 
