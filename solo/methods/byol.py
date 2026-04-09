@@ -589,8 +589,8 @@ class BYOL(BaseMomentumMethod):
                 # directly relates to the full-covariance entropy dynamics.
                 # =============================================
                 for suffix, za, zb in [
-                    ("norm", z0, zm1),  # student v1, teacher v2
-                    ("raw", z0_raw, zm1_raw),
+                    ("norm", z0.float(), zm1.float()),
+                    ("raw", z0_raw.float(), zm1_raw.float()),
                 ]:
                     za_c = za - za.mean(dim=0, keepdim=True)
                     zb_c = zb - zb.mean(dim=0, keepdim=True)
