@@ -618,6 +618,7 @@ class BYOL(BaseMomentumMethod):
                     Sigma_np = Sigma_np + eps * np.eye(Sigma_np.shape[0])
 
                     eigvals = np.linalg.eigvalsh(Sigma_np)
+                    eigvals = torch.tensor(eigvals)
 
                     min_eigval = eigvals.min().item()
                     frac_positive = (eigvals > 0).float().mean().item()
