@@ -605,8 +605,19 @@ class BYOL(BaseMomentumMethod):
                     Sigma_cross_sym = (Sigma_cross + Sigma_cross.T) / 2
 
                     # Eigenvalues
-                    eigvals = np.linalg.eigvalsh(Sigma_cross_sym.detach().cpu().numpy())
-                    eigvals = torch.from_numpy(eigvals).to(Sigma_cross_sym.device)
+                    Sigma = Sigma_cross_sym.detach()
+
+                    # enforce symmetry
+                    Sigma = 0.5 * (Sigma + Sigma.T)
+
+                    # move to float32 BEFORE numpy
+                    Sigma_np = Sigma.float().cpu().numpy()
+
+                    # small jitter for stability
+                    eps = 1e-6
+                    Sigma_np = Sigma_np + eps * np.eye(Sigma_np.shape[0])
+
+                    eigvals = np.linalg.eigvalsh(Sigma_np)
 
                     min_eigval = eigvals.min().item()
                     frac_positive = (eigvals > 0).float().mean().item()
