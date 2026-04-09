@@ -582,54 +582,61 @@ class BYOL(BaseMomentumMethod):
                 metrics["rho_frac_positive"] = float((rho_np > 0).mean())
 
                 # =============================================
-                # CROSS-COVARIANCE PSD CHECK: Cov(Z_theta, Z_phi) >= 0
-                # If all eigenvalues of Sigma_{theta,phi} are >= 0,
-                # the cross-covariance is positive semi-definite.
-                # This is a stronger condition than rho > 0 and
-                # directly relates to the full-covariance entropy dynamics.
+                # LEMMA 2 CONDITION CHECK (entropy increase)
+                # We test:
+                #   (1 - tau) Σ_phi + 2 tau C ⪰ 0
+                # via Monte Carlo quadratic forms:
+                #   v^T A v ≥ 0
+                # This avoids unstable eigendecomposition and
+                # directly matches the theoretical condition.
                 # =============================================
-                for suffix, za, zb in [
-                    ("norm", z0.float(), zm1.float()),
-                    ("raw", z0_raw.float(), zm1_raw.float()),
+                for suffix, zs, zt in [
+                    ("norm", z0.float(), zm0.float()),
+                    ("raw", z0_raw.float(), zm0_raw.float()),
                 ]:
-                    za_c = za - za.mean(dim=0, keepdim=True)
-                    zb_c = zb - zb.mean(dim=0, keepdim=True)
-                    n = za.shape[0]
-                    d_dim = za.shape[1]
+                    # Center representations
+                    zs_c = zs - zs.mean(dim=0, keepdim=True)  # student
+                    zt_c = zt - zt.mean(dim=0, keepdim=True)  # teacher
 
-                    # Cross-covariance matrix [d, d]
-                    Sigma_cross = (za_c.T @ zb_c) / (n - 1)
+                    n, d_dim = zs.shape
 
-                    # Symmetrize: (Sigma_cross + Sigma_cross^T) / 2
-                    # This is the matrix that appears in the variance dynamics
-                    Sigma_cross_sym = (Sigma_cross + Sigma_cross.T) / 2
+                    # Covariances
+                    Sigma_phi = (zs_c.T @ zs_c) / (n - 1)  # student covariance
+                    Sigma_cross = (zt_c.T @ zs_c) / (n - 1)  # cross-covariance
 
-                    # Eigenvalues
-                    Sigma = Sigma_cross_sym.detach()
+                    # Build A = (1 - tau) Σ_phi + 2 tau C
+                    A = (1 - self.tau) * Sigma_phi + 2 * self.tau * Sigma_cross
 
-                    # enforce symmetry
-                    Sigma = 0.5 * (Sigma + Sigma.T)
+                    # Symmetrize (critical for PSD test)
+                    A = 0.5 * (A + A.T)
 
-                    # move to float32 BEFORE numpy
-                    Sigma_np = Sigma.float().cpu().numpy()
+                    # =============================================
+                    # Monte Carlo quadratic form test
+                    # =============================================
+                    num_tests = 30
+                    quad_vals = []
 
-                    # small jitter for stability
-                    eps = 1e-6
-                    Sigma_np = Sigma_np + eps * np.eye(Sigma_np.shape[0])
+                    for _ in range(num_tests):
+                        v = torch.randn(d_dim, device=A.device)
+                        v = v / (v.norm() + 1e-10)
+                        val = (v @ A @ v).item()
+                        quad_vals.append(val)
 
-                    eigvals = np.linalg.eigvalsh(Sigma_np)
-                    eigvals = torch.tensor(eigvals)
+                    quad_vals = np.array(quad_vals)
 
-                    min_eigval = eigvals.min().item()
-                    frac_positive = (eigvals > 0).float().mean().item()
-                    frac_nonneg = (eigvals >= -1e-8).float().mean().item()
+                    # Metrics
+                    metrics[f"lemma2_quad_min_{suffix}"] = float(quad_vals.min())
+                    metrics[f"lemma2_quad_mean_{suffix}"] = float(quad_vals.mean())
+                    metrics[f"lemma2_quad_frac_pos_{suffix}"] = float(
+                        (quad_vals >= -1e-6).mean()
+                    )
 
-                    metrics[f"crosscov_min_eigval_{suffix}"] = min_eigval
-                    metrics[f"crosscov_frac_positive_{suffix}"] = frac_positive
-                    metrics[f"crosscov_frac_nonneg_{suffix}"] = frac_nonneg
+                    # =============================================
+                    # Optional: trace (theoretical signal strength)
+                    # =============================================
+                    trace_A = torch.trace(A)
 
-                    # Trace (should be positive if overall correlation is positive)
-                    metrics[f"crosscov_trace_{suffix}"] = Sigma_cross_sym.trace().item()
+                    metrics[f"lemma2_trace_{suffix}"] = trace_A.item()
 
                 # =============================================
                 # GAUSSIANITY CHECKS ON RAW OUTPUTS
