@@ -412,27 +412,28 @@ class BYOL(BaseMomentumMethod):
             # =============================================
             # SECTION 4.1: Assumption 1 (linear interpolation)
             # =============================================
+            # Wrap interpolation in disabled autocast to avoid FP16 issues
+            with torch.cuda.amp.autocast(enabled=False):
+                # Build interpolated (next-step) teacher
+                interpolated_backbone = interpolate_network(
+                    self.backbone, self.momentum_backbone, 0.99)
+                interpolated_projector = interpolate_network(
+                    self.projector, self.momentum_projector, 0.99)
 
-            # Build interpolated (next-step) teacher
-            interpolated_backbone = interpolate_network(
-                self.backbone, self.momentum_backbone, 0.99)
-            interpolated_projector = interpolate_network(
-                self.projector, self.momentum_projector, 0.99)
+                X_crop = batch[1][0]
+                feats_interp = interpolated_backbone(X_crop)
+                Z_interp_raw = interpolated_projector(feats_interp)
+                z_interp = F.normalize(Z_interp_raw, dim=-1)
 
-            X_crop = batch[1][0]
-            feats_interp = interpolated_backbone(X_crop)
-            Z_interp_raw = interpolated_projector(feats_interp)
-            z_interp = F.normalize(Z_interp_raw, dim=-1)
+                # Check on normalized (where theory operates)
+                Z_weighted_norm = 0.99 * zm0 + (1 - 0.99) * z0
+                interpolation_check_norm = torch.norm(
+                    z_interp - Z_weighted_norm, dim=1).mean()
 
-            # Check on normalized (where theory operates)
-            Z_weighted_norm = 0.99 * zm0 + (1 - 0.99) * z0
-            interpolation_check_norm = torch.norm(
-                z_interp - Z_weighted_norm, dim=1).mean()
-
-            # Check on raw (for reference: shows normalization tightens it)
-            Z_weighted_raw = 0.99 * zm0_raw + (1 - 0.99) * z0_raw
-            interpolation_check_raw = torch.norm(
-                Z_interp_raw - Z_weighted_raw, dim=1).mean()
+                # Check on raw (for reference: shows normalization tightens it)
+                Z_weighted_raw = 0.99 * zm0_raw + (1 - 0.99) * z0_raw
+                interpolation_check_raw = torch.norm(
+                    Z_interp_raw - Z_weighted_raw, dim=1).mean()
 
             # =============================================
             # SECTION 4.1: Assumption 2 (marginal innovation independence)
