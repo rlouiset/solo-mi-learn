@@ -348,40 +348,29 @@ class BYOL(BaseMomentumMethod):
         with torch.no_grad():
 
             # L2-normalized representations (on the hypersphere)
-            z0 = F.normalize(Z[0], dim=-1)
-            z1 = F.normalize(Z[1], dim=-1)
-            zm0 = F.normalize(Z_momentum[0], dim=-1)
-            zm1 = F.normalize(Z_momentum[1], dim=-1)
-            p0 = F.normalize(P[0], dim=-1)
-            p1 = F.normalize(P[1], dim=-1)
+            z0 = F.normalize(Z[0], dim=-1)  # student, view 1
+            z1 = F.normalize(Z[1], dim=-1)  # student, view 2
+            zm0 = F.normalize(Z_momentum[0], dim=-1)  # teacher, view 1
+            zm1 = F.normalize(Z_momentum[1], dim=-1)  # teacher, view 2
+            p0 = F.normalize(P[0], dim=-1)  # predictor(student), view 1
+            p1 = F.normalize(P[1], dim=-1)  # predictor(student), view 2
 
-            # Raw projector outputs (pre-normalization)
+            # Raw projector outputs (pre-normalization, for reference checks)
             z0_raw = Z[0]
-            z1_raw = Z[1]
             zm0_raw = Z_momentum[0]
             zm1_raw = Z_momentum[1]
-            p0_raw = P[0]
-            p1_raw = P[1]
+
+            d = z0.shape[1]
 
             # =============================================
-            # CORE TRAINING METRICS (every step, normalized)
+            # SECTION 3.1: L_bound = TS Cross-Prediction + H(Z_theta)
             # =============================================
-            z_std = torch.stack([z0, z1]).std(dim=1).mean()
-            z_std_teacher = torch.stack([zm0, zm1]).std(dim=1).mean()
 
-            student_entropy = (uniform_loss_func(z0) + uniform_loss_func(z1)) / 2
-            teacher_entropy = (uniform_loss_func(zm0) + uniform_loss_func(zm1)) / 2
-            predictor_entropy = (uniform_loss_func(p0) + uniform_loss_func(p1)) / 2
-
-            student_alignment = align_loss_func(z0, z1)
-            teacher_alignment = align_loss_func(zm0, zm1)
-            predictor_alignment = align_loss_func(p0, p1)
-
-            # =============================================
-            # KDE ENTROPY ESTIMATOR (every step, normalized)
-            # =============================================
+            # KDE entropy estimator
             def kde_entropy(z, sigma=1.0):
-                """KDE entropy estimator on normalized representations."""
+                """KDE entropy estimator on normalized representations.
+                H(Z) ~ -1/N sum_i log(1/(N-1) sum_{j!=i} exp(-||z_i-z_j||^2 / 2sigma^2))
+                """
                 dists_sq = torch.cdist(z, z, p=2).pow(2)
                 B = z.shape[0]
                 mask = ~torch.eye(B, dtype=torch.bool, device=z.device)
@@ -390,46 +379,41 @@ class BYOL(BaseMomentumMethod):
                 ) - math.log(B - 1)
                 return -log_density.mean()
 
-            h_teacher_v1 = kde_entropy(zm0)
-            h_teacher_v2 = kde_entropy(zm1)
-            h_student_v1 = kde_entropy(z0)
-            h_student_v2 = kde_entropy(z1)
-            h_predictor_v1 = kde_entropy(p0)
-            h_predictor_v2 = kde_entropy(p1)
+            # Marginal entropies H(Z_theta), H(Z_phi), H(Z_{phi,psi})
+            h_teacher = (kde_entropy(zm0) + kde_entropy(zm1)) / 2
+            h_student = (kde_entropy(z0) + kde_entropy(z1)) / 2
+            h_predictor = (kde_entropy(p0) + kde_entropy(p1)) / 2
 
-            h_teacher = (h_teacher_v1 + h_teacher_v2) / 2
-            h_student = (h_student_v1 + h_student_v2) / 2
-            h_predictor = (h_predictor_v1 + h_predictor_v2) / 2
+            # Alignment = H(Z|X) proxy via same-input different-augmentation MSE
+            # E[||z(v1) - z(v2)||^2] / 2
+            teacher_alignment = (zm0 - zm1).pow(2).sum(dim=1).mean() / 2
+            student_alignment = (z0 - z1).pow(2).sum(dim=1).mean() / 2
 
-            # =============================================
-            # CORRELATIONS rho^t and rho_X^t (every step, normalized)
-            # =============================================
-            rho = (estimate_rho_isotropic(z0, zm1) +
-                   estimate_rho_isotropic(z1, zm0)) / 2
+            # Cross-prediction MSE (= BYOL loss up to normalization constant)
+            # This is the TS Cross-Prediction term (up to -d/2 log(2pi))
+            cross_prediction_mse = ((zm1 - p0).pow(2).sum(dim=1).mean() +
+                                    (zm0 - p1).pow(2).sum(dim=1).mean()) / 2
 
-            norm_s = torch.linalg.norm(z0 - z1, dim=1)
-            norm_t = torch.linalg.norm(zm0 - zm1, dim=1)
-            ns = norm_s - norm_s.mean()
-            nt = norm_t - norm_t.mean()
-            rho_x = (ns @ nt) / (torch.norm(ns) * torch.norm(nt) + 1e-10)
+            # Teacher self-prediction MSE: how well does another view predict the teacher?
+            # Compare with cross_prediction_mse to assess predictor quality
+            teacher_self_prediction_mse = (zm0 - zm1).pow(2).sum(dim=1).mean() / 2
 
-            # =============================================
-            # VARIANCE RATIOS r and r_X (every step, normalized)
-            # =============================================
-            sigma_student = z0.var(dim=0).mean().sqrt()
-            sigma_teacher = zm0.var(dim=0).mean().sqrt()
-            r_marginal = sigma_student / (sigma_teacher + 1e-10)
-
-            cond_var_student = (z0 - z1).pow(2).mean(dim=0).mean() / 2
-            cond_var_teacher = (zm0 - zm1).pow(2).mean(dim=0).mean() / 2
-            r_X = (cond_var_student / (cond_var_teacher + 1e-10)).sqrt()
+            # Uniformity-based entropy (backward compat with existing plots)
+            student_uniformity = (uniform_loss_func(z0) + uniform_loss_func(z1)) / 2
+            teacher_uniformity = (uniform_loss_func(zm0) + uniform_loss_func(zm1)) / 2
 
             # =============================================
-            # LEMMA 2 CHECK (every step)
-            # Build interpolated teacher, check entropy condition
+            # SECTION 3.2: Predictor quality (Proposition 1)
             # =============================================
-            d = z0.shape[1]
+            # (I_teacher, I_student, L_bound, h_entropy_gap
+            #  are derived in wandb from h_teacher, h_student,
+            #  teacher_alignment, student_alignment, cross_prediction_mse)
 
+            # =============================================
+            # SECTION 4.1: Assumption 1 (linear interpolation)
+            # =============================================
+
+            # Build interpolated (next-step) teacher
             interpolated_backbone = interpolate_network(
                 self.backbone, self.momentum_backbone, 0.99)
             interpolated_projector = interpolate_network(
@@ -440,125 +424,71 @@ class BYOL(BaseMomentumMethod):
             Z_interp_raw = interpolated_projector(feats_interp)
             z_interp = F.normalize(Z_interp_raw, dim=-1)
 
-            # Assumption 3 check: linear interpolation on RAW outputs
-            # ||f_{theta^{t+1}}(x) - (tau * f_{theta^t}(x) + (1-tau) * f_{phi^t}(x))||
-            Z_weighted_raw = 0.99 * zm0_raw + (1 - 0.99) * z0_raw
-            interpolation_check_raw = torch.norm(
-                Z_interp_raw - Z_weighted_raw, dim=1).mean()
-
-            # Also check on normalized (for reference)
+            # Check on normalized (where theory operates)
             Z_weighted_norm = 0.99 * zm0 + (1 - 0.99) * z0
             interpolation_check_norm = torch.norm(
                 z_interp - Z_weighted_norm, dim=1).mean()
 
-            # Lemma 2 entropy check on normalized
-            h_teacher_next = kde_entropy(z_interp)
-            lemma2_entropy_diff = h_teacher_next - h_teacher_v1
-            lemma2_threshold = d * math.log(0.99)
-            lemma2_holds = (lemma2_entropy_diff >= lemma2_threshold).float()
-
-            # Sigma ratio check
-            if hasattr(self, '_prev_sigma_teacher') and self._prev_sigma_teacher > 0:
-                lemma2_sigma_ratio = sigma_teacher / self._prev_sigma_teacher
-            else:
-                lemma2_sigma_ratio = torch.tensor(1.0)
-            self._prev_sigma_teacher = sigma_teacher.clone()
+            # Check on raw (for reference: shows normalization tightens it)
+            Z_weighted_raw = 0.99 * zm0_raw + (1 - 0.99) * z0_raw
+            interpolation_check_raw = torch.norm(
+                Z_interp_raw - Z_weighted_raw, dim=1).mean()
 
             # =============================================
-            # ASSUMPTION 1: RESIDUAL DIAGNOSTICS (every step)
-            # G_t := Z_theta - h_psi(Z_phi)
-            # Check independence between Z_phi and G_t
-            # H(tau * G_t) = H(G_t) + d*log(tau) for ANY continuous G_t
+            # SECTION 4.1: Assumption 2 (marginal innovation independence)
+            # eta^t := Z_phi - Z_theta, check eta^t ⊥ Z_theta
             # =============================================
-            residual_01 = zm1 - p0
-            residual_10 = zm0 - p1
 
-            residual_norm = (residual_01.norm(dim=1).mean() +
-                             residual_10.norm(dim=1).mean()) / 2
-            residual_var = residual_01.var(dim=0).mean()
-
-            # Independence: |corr(G_t, Z_phi)| on normalized
-            rho_residual_student = abs(estimate_rho_isotropic(residual_01, z0))
-
-            # =============================================
-            # ASSUMPTION 1 (alternative formulation):
-            # Check independence between Z_theta and (1-tau)*(Z_phi - Z_theta)
-            # This is the "innovation" that the EMA adds from the student.
-            # If independent of Z_theta, the EMA step purely adds new info.
-            # =============================================
-            innovation_01 = (1 - 0.99) * (z0 - zm0)  # (1-tau) * (Z_phi - Z_theta)
-            rho_innovation_teacher = abs(estimate_rho_isotropic(innovation_01, zm0))
-
-            # Also on raw
-            innovation_01_raw = (1 - 0.99) * (z0_raw - zm0_raw)
+            # Marginal: correlation between innovation and teacher
+            # Use view 1 for both (same augmentation, different networks)
+            innovation_v1 = z0 - zm0  # Z_phi(v1) - Z_theta(v1)
+            rho_innovation_teacher = abs(estimate_rho_isotropic(
+                innovation_v1, zm0))
             rho_innovation_teacher_raw = abs(estimate_rho_isotropic(
-                innovation_01_raw, zm0_raw))
+                z0_raw - zm0_raw, zm0_raw))
 
             # =============================================
-            # SECTION 3.2: H(Z_theta) ≈ H(h_psi(Z_phi))
+            # SECTION 5.1: Assumption 3 (conditional innovation independence)
+            # eta^t ⊥ Z_theta | X
+            # Proxy: innovation from view 1, teacher from view 2
+            # (same input, independent augmentations)
             # =============================================
-            h_entropy_gap = abs(h_teacher - h_predictor)
-
-            # Cross-prediction MSE vs teacher self-alignment
-            cross_prediction_mse = ((zm1 - p0).pow(2).sum(dim=1).mean() +
-                                    (zm0 - p1).pow(2).sum(dim=1).mean()) / 2
-            teacher_self_prediction_mse = (zm0 - zm1).pow(2).sum(dim=1).mean() / 2
+            rho_innovation_teacher_cond = abs(estimate_rho_isotropic(
+                innovation_v1, zm1))
+            rho_innovation_teacher_cond_raw = abs(estimate_rho_isotropic(
+                z0_raw - zm0_raw, zm1_raw))
 
             # =============================================
-            # THIN-SHELL CHECK (every step, raw outputs)
+            # SECTION 4.2: Lemma 2 (H(Z_theta^{t+1}) >= H(Z_theta^t))
             # =============================================
-            norms_raw = torch.norm(zm0_raw, dim=1)
-            cv_norms_teacher = norms_raw.std() / (norms_raw.mean() + 1e-10)
+            h_teacher_next = kde_entropy(z_interp)
 
-            norms_student_raw = torch.norm(z0_raw, dim=1)
-            cv_norms_student = norms_student_raw.std() / (norms_student_raw.mean() + 1e-10)
+            # (lemma2_entropy_diff = h_teacher_next - h_teacher
+            #  is derived in wandb; should be >= 0)
 
         metrics = {
-            # Core training
+            # Section 3.1: L_bound components
             "train_neg_cos_sim": neg_cos_sim,
-            "train_z_std": z_std,
-            "train_z_std_teacher": z_std_teacher,
-            # Uniformity-based entropy
-            "train_student_entropy": student_entropy,
-            "train_teacher_entropy": teacher_entropy,
-            "train_predictor_entropy": predictor_entropy,
-            "train_student_alignment": student_alignment,
-            "train_teacher_alignment": teacher_alignment,
-            "train_predictor_alignment": predictor_alignment,
-            # KDE entropy
             "h_teacher": h_teacher,
             "h_student": h_student,
             "h_predictor": h_predictor,
-            # Section 3.2
-            "h_entropy_gap": h_entropy_gap,
+            "teacher_alignment": teacher_alignment,
+            "student_alignment": student_alignment,
             "cross_prediction_mse": cross_prediction_mse,
             "teacher_self_prediction_mse": teacher_self_prediction_mse,
-            # Correlations
-            "rho": rho,
-            "rho_x": rho_x,
-            # Variance ratios
-            "r_marginal": r_marginal,
-            "r_X": r_X,
-            "sigma_student": sigma_student,
-            "sigma_teacher": sigma_teacher,
-            # Lemma 2
-            "lemma2_entropy_diff": lemma2_entropy_diff,
-            "lemma2_threshold": lemma2_threshold,
-            "lemma2_holds": lemma2_holds,
-            "lemma2_sigma_ratio": lemma2_sigma_ratio,
-            # Assumption 1 (residuals)
-            "residual_norm": residual_norm,
-            "residual_var": residual_var,
-            "rho_residual_student": rho_residual_student,
-            # Assumption 1 (innovation independence)
+            "train_student_uniformity": student_uniformity,
+            "train_teacher_uniformity": teacher_uniformity,
+            # Section 4.1: Assumption 1 (interpolation)
+            "interpolation_check_norm": interpolation_check_norm,
+            "interpolation_check_raw": interpolation_check_raw,
+            # Section 4.1: Assumption 2 (marginal innovation independence)
             "rho_innovation_teacher": rho_innovation_teacher,
             "rho_innovation_teacher_raw": rho_innovation_teacher_raw,
-            # Assumption 3 (interpolation, raw)
-            "interpolation_check_raw": interpolation_check_raw,
-            "interpolation_check_norm": interpolation_check_norm,
-            # Thin-shell
-            "cv_norms_teacher": cv_norms_teacher,
-            "cv_norms_student": cv_norms_student,
+            # Section 5.1: Assumption 3 (conditional innovation independence)
+            "rho_innovation_teacher_cond": rho_innovation_teacher_cond,
+            "rho_innovation_teacher_cond_raw": rho_innovation_teacher_cond_raw,
+            # Section 4.2: Lemma 2 (entropy non-decrease)
+            "h_teacher_next": h_teacher_next,
         }
 
         # =============================================
@@ -567,155 +497,110 @@ class BYOL(BaseMomentumMethod):
         if batch_idx % 100 == 0:
             with torch.no_grad():
 
-                # -- Per-dimension rho (Corollary 1) --
-                z0_c = z0 - z0.mean(dim=0, keepdim=True)
-                zm1_c = zm1 - zm1.mean(dim=0, keepdim=True)
-                B = z0.shape[0]
-                cov_per_dim = (z0_c * zm1_c).sum(dim=0) / (B - 1)
-                std_z = z0_c.pow(2).sum(dim=0).div(B - 1).sqrt()
-                std_zm = zm1_c.pow(2).sum(dim=0).div(B - 1).sqrt()
-                rho_per_dim = cov_per_dim / (std_z * std_zm + 1e-10)
-                rho_np = rho_per_dim.cpu().numpy()
+                # =============================================
+                # SECTION 5.2: Lemma (innovation covariance structure)
+                # (i)  Sigma_{phi,theta} = Sigma_theta
+                # (iii) Sigma_phi - Sigma_theta >= 0 (PSD)
+                # =============================================
 
-                metrics["rho_diag_std"] = float(rho_np.std())
-                metrics["rho_diag_min"] = float(rho_np.min())
-                metrics["rho_frac_positive"] = float((rho_np > 0).mean())
+                # --- Marginal covariance checks ---
+                z0_c = (z0 - z0.mean(dim=0, keepdim=True)).float()
+                zm0_c = (zm0 - zm0.mean(dim=0, keepdim=True)).float()
+                n = z0.shape[0]
+
+                Sigma_phi = (z0_c.T @ z0_c) / (n - 1)
+                Sigma_theta = (zm0_c.T @ zm0_c) / (n - 1)
+                Sigma_phi_theta = (z0_c.T @ zm0_c) / (n - 1)
+
+                # (i) ||Sigma_{phi,theta} - Sigma_theta||_F / ||Sigma_theta||_F
+                cross_cov_error = torch.norm(
+                    Sigma_phi_theta - Sigma_theta, 'fro'
+                ) / (torch.norm(Sigma_theta, 'fro') + 1e-10)
+                metrics["cross_cov_equals_teacher_cov"] = cross_cov_error.item()
+
+                # (iii) Eigenvalues of Sigma_phi - Sigma_theta
+                innovation_cov = Sigma_phi - Sigma_theta
+                innovation_cov = 0.5 * (innovation_cov + innovation_cov.T)  # symmetrize
+                eigvals = torch.linalg.eigvalsh(innovation_cov)
+
+                metrics["innovation_cov_min_eigval"] = eigvals.min().item()
+                metrics["innovation_cov_psd_frac"] = (
+                        eigvals >= -1e-6).float().mean().item()
+
+                # --- Conditional covariance checks ---
+                # Conditional covariance proxy: Cov(Z|X) ~ Cov(Z(v1) - Z(v2)) / 2
+                # For teacher:
+                diff_teacher = ((zm0 - zm1) / math.sqrt(2)).float()
+                diff_teacher_c = diff_teacher - diff_teacher.mean(dim=0, keepdim=True)
+                Sigma_theta_X = (diff_teacher_c.T @ diff_teacher_c) / (n - 1)
+
+                # For student:
+                diff_student = ((z0 - z1) / math.sqrt(2)).float()
+                diff_student_c = diff_student - diff_student.mean(dim=0, keepdim=True)
+                Sigma_phi_X = (diff_student_c.T @ diff_student_c) / (n - 1)
+
+                # Cross-covariance conditional proxy:
+                # Cov(Z_phi, Z_theta | X) ~ Cov of paired differences
+                Sigma_phi_theta_X = (diff_student_c.T @ diff_teacher_c) / (n - 1)
+
+                # (i) conditional: ||Sigma_{phi,theta|X} - Sigma_{theta|X}||_F / ||Sigma_{theta|X}||_F
+                cond_cross_cov_error = torch.norm(
+                    Sigma_phi_theta_X - Sigma_theta_X, 'fro'
+                ) / (torch.norm(Sigma_theta_X, 'fro') + 1e-10)
+                metrics["cond_cross_cov_equals_teacher_cond_cov"] = (
+                    cond_cross_cov_error.item())
+
+                # (iii) conditional: eigenvalues of Sigma_{phi|X} - Sigma_{theta|X}
+                cond_innovation_cov = Sigma_phi_X - Sigma_theta_X
+                cond_innovation_cov = 0.5 * (
+                        cond_innovation_cov + cond_innovation_cov.T)
+                cond_eigvals = torch.linalg.eigvalsh(cond_innovation_cov)
+
+                metrics["cond_innovation_cov_min_eigval"] = (
+                    cond_eigvals.min().item())
+                metrics["cond_innovation_cov_psd_frac"] = (
+                        cond_eigvals >= -1e-6).float().mean().item()
 
                 # =============================================
-                # LEMMA 2 CONDITION CHECK (entropy increase)
-                # We test:
-                #   (1 - tau) Σ_phi + 2 tau C ⪰ 0
-                # via Monte Carlo quadratic forms:
-                #   v^T A v ≥ 0
-                # This avoids unstable eigendecomposition and
-                # directly matches the theoretical condition.
-                # =============================================
-                for suffix, zs, zt in [
-                    ("norm", z0.float(), zm0.float()),
-                    ("raw", z0_raw.float(), zm0_raw.float()),
-                ]:
-                    # Center representations
-                    zs_c = zs - zs.mean(dim=0, keepdim=True)  # student
-                    zt_c = zt - zt.mean(dim=0, keepdim=True)  # teacher
-
-                    n, d_dim = zs.shape
-
-                    # Covariances
-                    Sigma_phi = (zs_c.T @ zs_c) / (n - 1)  # student covariance
-                    Sigma_cross = (zt_c.T @ zs_c) / (n - 1)  # cross-covariance
-
-                    # Build A = (1 - tau) Σ_phi + 2 tau C
-                    A = (1 - 0.99) * Sigma_phi + 2 * 0.99 * Sigma_cross
-
-                    # Symmetrize (critical for PSD test)
-                    A = 0.5 * (A + A.T)
-
-                    # =============================================
-                    # Monte Carlo quadratic form test
-                    # =============================================
-                    num_tests = 30
-                    quad_vals = []
-
-                    for _ in range(num_tests):
-                        v = torch.randn(d_dim, device=A.device)
-                        v = v / (v.norm() + 1e-10)
-                        val = (v @ A @ v).item()
-                        quad_vals.append(val)
-
-                    quad_vals = np.array(quad_vals)
-
-                    # Metrics
-                    metrics[f"lemma2_quad_min_{suffix}"] = float(quad_vals.min())
-                    metrics[f"lemma2_quad_mean_{suffix}"] = float(quad_vals.mean())
-                    metrics[f"lemma2_quad_frac_pos_{suffix}"] = float(
-                        (quad_vals >= -1e-6).mean()
-                    )
-
-                    # =============================================
-                    # Optional: trace (theoretical signal strength)
-                    # =============================================
-                    trace_A = torch.trace(A)
-
-                    metrics[f"lemma2_trace_{suffix}"] = trace_A.item()
-
-                # =============================================
-                # GAUSSIANITY CHECKS ON RAW OUTPUTS
-                # Random projections + Anderson-Darling (Cramer-Wold)
-                # Per-coordinate + Anderson-Darling / D'Agostino-Pearson
-                # Following Betser et al. (ICLR 2026)
+                # SECTION 5.1: Assumption 4 (Gaussianity)
+                # Per-coordinate AD and DP tests on normalized
+                # representations, following Betser et al. (ICLR 2026)
                 # =============================================
                 from scipy.stats import anderson, normaltest
 
-                num_projections = 30
-
-                for name, tensor in [("student_raw", z0_raw),
-                                     ("teacher_raw", zm0_raw)]:
+                for name, tensor in [("student", z0), ("teacher", zm0)]:
                     t_np = tensor.detach().cpu().numpy()
                     n_samples, d_dim = t_np.shape
-                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
 
-                    # --- Random projection Gaussianity (Cramer-Wold) ---
-                    proj_ad_stats = []
-                    for _ in range(num_projections):
-                        v = np.random.randn(d_dim)
-                        v /= np.linalg.norm(v)
-                        proj = t_centered @ v
-                        proj = (proj - proj.mean()) / (proj.std() + 1e-10)
-                        ad_result = anderson(proj, dist='norm')
-                        proj_ad_stats.append(ad_result.statistic)
+                    ad_stats = []
+                    dp_pvals = []
 
-                    proj_ad_stats = np.array(proj_ad_stats)
-                    metrics[f"{name}_proj_ad_avg"] = float(proj_ad_stats.mean())
-                    metrics[f"{name}_proj_ad_median"] = float(np.median(proj_ad_stats))
-                    metrics[f"{name}_proj_ad_frac_gaussian"] = float(
-                        (proj_ad_stats < 0.752).mean())
-
-                    # --- Per-coordinate Gaussianity ---
-                    coord_ad_stats = []
-                    coord_dp_pvals = []
                     for j in range(d_dim):
                         col = t_np[:, j]
                         col_std = (col - col.mean()) / (col.std() + 1e-10)
 
+                        # Anderson-Darling test
                         ad_result = anderson(col_std, dist='norm')
-                        coord_ad_stats.append(ad_result.statistic)
+                        ad_stats.append(ad_result.statistic)
 
+                        # D'Agostino-Pearson test
                         if n_samples >= 20:
                             _, dp_pval = normaltest(col)
-                            coord_dp_pvals.append(dp_pval)
+                            dp_pvals.append(dp_pval)
 
-                    coord_ad_stats = np.array(coord_ad_stats)
-                    metrics[f"{name}_coord_ad_avg"] = float(coord_ad_stats.mean())
+                    ad_stats = np.array(ad_stats)
+                    # AD < 0.752 => cannot reject Gaussianity at 5% level
                     metrics[f"{name}_coord_ad_frac_gaussian"] = float(
-                        (coord_ad_stats < 0.752).mean())
+                        (ad_stats < 0.752).mean())
+                    metrics[f"{name}_coord_ad_avg"] = float(ad_stats.mean())
 
-                    if len(coord_dp_pvals) > 0:
-                        coord_dp_pvals = np.array(coord_dp_pvals)
-                        metrics[f"{name}_coord_dp_avg_pval"] = float(
-                            coord_dp_pvals.mean())
+                    if len(dp_pvals) > 0:
+                        dp_pvals = np.array(dp_pvals)
+                        # p > 0.05 => cannot reject Gaussianity
                         metrics[f"{name}_coord_dp_frac_gaussian"] = float(
-                            (coord_dp_pvals > 0.05).mean())
-
-                # =============================================
-                # DIAGONAL CHECK on normalized (sphere geometry)
-                # =============================================
-                for name, tensor in [("student", z0), ("teacher", zm0)]:
-                    t_np = tensor.detach().cpu().numpy()
-                    n, d_dim = t_np.shape
-                    t_centered = t_np - t_np.mean(axis=0, keepdims=True)
-                    stds = t_centered.std(axis=0, keepdims=True) + 1e-10
-                    t_standardized = t_centered / stds
-
-                    corr = (t_standardized.T @ t_standardized) / (n - 1)
-                    np.fill_diagonal(corr, 0)
-
-                    mean_abs_corr = np.abs(corr).mean()
-                    sphere_baseline = 1.0 / (d_dim - 1)
-
-                    metrics[f"{name}_mean_abs_corr"] = float(mean_abs_corr)
-                    metrics[f"{name}_sphere_corr_baseline"] = float(sphere_baseline)
-                    metrics[f"{name}_corr_ratio_to_baseline"] = float(
-                        mean_abs_corr / (sphere_baseline + 1e-10))
+                            (dp_pvals > 0.05).mean())
+                        metrics[f"{name}_coord_dp_avg_pval"] = float(
+                            dp_pvals.mean())
 
         self.log_dict(metrics, on_epoch=True, sync_dist=False)
 
@@ -742,42 +627,6 @@ def estimate_rho_isotropic(X, Y, unbiased=True):
     rho_hat = tr_Sxy / (d * torch.sqrt(sigma_x2 * sigma_y2))
     return rho_hat.item()
 
-from scipy.stats import shapiro, normaltest
-
-def test_gaussianity_random_projections(residuals, num_projections=50):
-    """
-    Test Gaussianity of high-dimensional residuals via random projections.
-
-    Args:
-        residuals: torch.Tensor of shape (n_samples, d)
-        num_projections: number of random projections to test
-    Returns:
-        List of p-values for Shapiro-Wilk and D'Agostino tests
-    """
-    residuals_np = residuals.detach().cpu().numpy()
-    n_samples, d = residuals_np.shape
-
-    shapiro_pvals = []
-    dagostino_pvals = []
-
-    for _ in range(num_projections):
-        # Random unit vector
-        v = np.random.randn(d)
-        v /= np.linalg.norm(v)
-
-        # Project residuals
-        proj = residuals_np @ v  # shape: (n_samples,)
-
-        # Shapiro-Wilk test
-        _, p_sw = shapiro(proj)
-        shapiro_pvals.append(p_sw)
-
-        # D'Agostino K2 test
-        _, p_k2 = normaltest(proj)
-        dagostino_pvals.append(p_k2)
-
-    return np.array(shapiro_pvals), np.array(dagostino_pvals)
-
 @torch.no_grad()
 def interpolate_network(online_net: torch.nn.Module, momentum_net: torch.nn.Module, tau: float):
     """
@@ -790,9 +639,3 @@ def interpolate_network(online_net: torch.nn.Module, momentum_net: torch.nn.Modu
                                          online_net.parameters()):
         p_interp.data = tau * p_mom.data + (1 - tau) * p_online.data
     return interpolated_net
-
-def cross_covariance_norm(Z, R):
-    Zc = Z - Z.mean(0, keepdims=True)
-    Rc = R - R.mean(0, keepdims=True)
-    C = (Zc.T @ Rc) / (Z.shape[0] - 1)
-    return np.linalg.norm(C, ord='fro')
