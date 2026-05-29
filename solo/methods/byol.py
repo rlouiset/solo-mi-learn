@@ -521,7 +521,7 @@ class BYOL(BaseMomentumMethod):
                 # (iii) Eigenvalues of Sigma_phi - Sigma_theta
                 innovation_cov = Sigma_phi - Sigma_theta
                 innovation_cov = 0.5 * (innovation_cov + innovation_cov.T)  # symmetrize
-                eigvals = torch.linalg.eigvalsh(innovation_cov)
+                eigvals = torch.linalg.eigvalsh(innovation_cov.float())
 
                 metrics["innovation_cov_min_eigval"] = eigvals.min().item()
                 metrics["innovation_cov_psd_frac"] = (
@@ -554,7 +554,7 @@ class BYOL(BaseMomentumMethod):
                 cond_innovation_cov = Sigma_phi_X - Sigma_theta_X
                 cond_innovation_cov = 0.5 * (
                         cond_innovation_cov + cond_innovation_cov.T)
-                cond_eigvals = torch.linalg.eigvalsh(cond_innovation_cov)
+                cond_eigvals = torch.linalg.eigvalsh(cond_innovation_cov.float())
 
                 metrics["cond_innovation_cov_min_eigval"] = (
                     cond_eigvals.min().item())
