@@ -33,6 +33,7 @@ from solo.utils.momentum import initialize_momentum_params
 
 from scipy.stats import anderson, normaltest
 import math
+import copy
 
 import torch.nn.init as init
 
