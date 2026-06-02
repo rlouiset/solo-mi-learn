@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "robyol-tau-0.99to0.999-bs512-1au-derma-track-derma128"
+name: "robyol-bs1024-1au-track-derma128"
 method: "robyol"
 backbone:
   name: "resnet18"
@@ -22,7 +22,7 @@ method_kwargs:
   au_scale_loss: 1
 momentum:
   base_tau: 0.99
-  final_tau: 0.999
+  final_tau: 0.99
 data:
   dataset: DermaMNIST
   train_path: "./datasets"
@@ -31,7 +31,7 @@ data:
   num_workers: 4
 optimizer:
   name: "lars"
-  batch_size: 512
+  batch_size: 1024
   lr: 1.0
   classifier_lr: 0.1
   weight_decay: 1e-5
