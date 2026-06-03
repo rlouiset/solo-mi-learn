@@ -344,15 +344,13 @@ class BYOL(BaseMomentumMethod):
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])"""
-        # ------- random-pair negative cosine similarity loss -------
+        # In the loss computation, replace P[v2] with Z[v2] (identity predictor)
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                # Shuffle teacher embeddings to break positive-pair structure
-                batch_size = Z_momentum[v1].shape[0]
-                random_perm = torch.randperm(batch_size, device=Z_momentum[v1].device)
-                Z_momentum_shuffled = Z_momentum[v1][random_perm]
-                neg_cos_sim += byol_loss_func(P[v2], Z_momentum_shuffled.detach())
+                # Use student embedding directly instead of predictor output
+                neg_cos_sim += byol_loss_func(
+                    F.normalize(Z[v2], dim=-1), Z_momentum[v1])
 
         # ------- diagnostics (no grad) -------
         with torch.no_grad():
