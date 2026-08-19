@@ -339,18 +339,18 @@ class BYOL(BaseMomentumMethod):
         P = out["p"]
         Z_momentum = out["momentum_z"]
 
-        """# ------- negative cosine similarity loss -------
+        # ------- negative cosine similarity loss -------
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])"""
-        # In the loss computation, replace P[v2] with Z[v2] (identity predictor)
+                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+        """# In the loss computation, replace P[v2] with Z[v2] (identity predictor)
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 # Use student embedding directly instead of predictor output
                 neg_cos_sim += byol_loss_func(
-                    F.normalize(Z[v2], dim=-1), Z_momentum[v1])
+                    F.normalize(Z[v2], dim=-1), Z_momentum[v1])"""
 
         # ------- diagnostics (no grad) -------
         with torch.no_grad():
@@ -462,10 +462,10 @@ class BYOL(BaseMomentumMethod):
             # Proxy: innovation from view 1, teacher from view 2
             # (same input, independent augmentations)
             # =============================================
-            rho_innovation_teacher_cond = abs(estimate_rho_isotropic(
-                innovation_v1, zm1))
-            rho_innovation_teacher_cond_raw = abs(estimate_rho_isotropic(
-                z0_raw - zm0_raw, zm1_raw))
+            rho_innovation_teacher_cond = estimate_rho_isotropic(
+                innovation_v1, zm1)
+            rho_innovation_teacher_cond_raw = estimate_rho_isotropic(
+                z0_raw - zm0_raw, zm1_raw)
 
             # =============================================
             # SECTION 4.2: Lemma 2 (H(Z_theta^{t+1}) >= H(Z_theta^t))

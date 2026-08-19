@@ -259,10 +259,10 @@ class RoBYOL(BaseMomentumMethod):
             # SECTION 4.1: Assumption 2 (marginal innovation independence)
             # =============================================
             innovation_v1 = z0 - zm0
-            rho_innovation_teacher = abs(estimate_rho_isotropic(
-                innovation_v1, zm0))
-            rho_innovation_teacher_raw = abs(estimate_rho_isotropic(
-                z0_raw - zm0_raw, zm0_raw))
+            rho_innovation_teacher = estimate_rho_isotropic(
+                innovation_v1, zm0)
+            rho_innovation_teacher_raw = estimate_rho_isotropic(
+                z0_raw - zm0_raw, zm0_raw)
 
             # =============================================
             # SECTION 5.1: Assumption 3 (conditional innovation independence)
