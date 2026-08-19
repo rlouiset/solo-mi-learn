@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-400epochs-r50-track-bs-512-stl"
+name: "byol-400epochs-r50-track-bs-512-predictor-free-stl"
 method: "byol"
 backbone:
   name: "resnet50"
@@ -48,7 +48,7 @@ auto_resume:
   enabled: True
 
 # overwrite PL stuff
-max_epochs: 400
+max_epochs: 200
 devices: [0]
 sync_batchnorm: True
 accelerator: "gpu"
