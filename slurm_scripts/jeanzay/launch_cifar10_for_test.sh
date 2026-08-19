@@ -15,4 +15,4 @@ conda deactivate # deactivate environments inherited by default
 module load miniforge/24.9.0
 conda activate py39
 export WANDB_MODE=offline
-srun python3 main_pretrain.py --config-path scripts/pretrain/stl/ --config-name byol.yaml
+srun python3 main_pretrain.py --config-path scripts/pretrain/cifar/ --config-name byol.yaml
