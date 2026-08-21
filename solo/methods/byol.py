@@ -340,17 +340,17 @@ class BYOL(BaseMomentumMethod):
         Z_momentum = out["momentum_z"]
 
         # ------- negative cosine similarity loss -------
-        """neg_cos_sim = 0
+        neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
-                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])"""
-        # In the loss computation, replace P[v2] with Z[v2] (identity predictor)
+                neg_cos_sim += byol_loss_func(P[v2], Z_momentum[v1])
+        """# In the loss computation, replace P[v2] with Z[v2] (identity predictor)
         neg_cos_sim = 0
         for v1 in range(self.num_large_crops):
             for v2 in np.delete(range(self.num_crops), v1):
                 # Use student embedding directly instead of predictor output
                 neg_cos_sim += byol_loss_func(
-                    F.normalize(Z[v2], dim=-1), Z_momentum[v1])
+                    F.normalize(Z[v2], dim=-1), Z_momentum[v1])"""
 
         # ------- diagnostics (no grad) -------
         with torch.no_grad():

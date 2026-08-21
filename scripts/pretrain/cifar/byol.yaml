@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-bs-1024-cifar10-predictor-free-no-abs-innovation" # change here for cifar100
+name: "byol-bs-1024-cifar10-freeze-teacher-at-30-epochs-no-abs-innovation" # change here for cifar100
 method: "byol"
 backbone:
   name: "resnet18"

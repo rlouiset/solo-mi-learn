@@ -839,20 +839,20 @@ class BaseMomentumMethod(BaseMethod):
                 [X] is a list of size self.num_crops containing batches of images.
             batch_idx (int): index of the batch.
         """
-
-        if (self.trainer.global_step) > self.last_step:
-            # update momentum backbone and projector
-            momentum_pairs = self.momentum_pairs
-            for mp in momentum_pairs:
-                self.momentum_updater.update(*mp)
-            # log tau momentum
-            self.log("tau", self.momentum_updater.cur_tau)
-            # update tau
-            self.momentum_updater.update_tau(
-                cur_step=self.trainer.global_step,
-                max_steps=self.trainer.estimated_stepping_batches,
-            )
-        self.last_step = (self.trainer.global_step)
+        if self.current_epoch < 25:
+            if self.trainer.global_step > self.last_step:
+                # update momentum backbone and projector
+                momentum_pairs = self.momentum_pairs
+                for mp in momentum_pairs:
+                    self.momentum_updater.update(*mp)
+                # log tau momentum
+                self.log("tau", self.momentum_updater.cur_tau)
+                # update tau
+                self.momentum_updater.update_tau(
+                    cur_step=self.trainer.global_step,
+                    max_steps=self.trainer.estimated_stepping_batches,
+                )
+            self.last_step = self.trainer.global_step
 
     def validation_step(
         self,
