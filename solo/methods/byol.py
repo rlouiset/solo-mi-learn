@@ -396,6 +396,7 @@ class BYOL(BaseMomentumMethod):
             # E[||z(v1) - z(v2)||^2] / 2
             teacher_alignment = (zm0 - zm1).pow(2).sum(dim=1).mean() / 2
             student_alignment = (z0 - z1).pow(2).sum(dim=1).mean() / 2
+            predictor_alignment = (p0 - p1).pow(2).sum(dim=1).mean() / 2
 
             # Cross-prediction MSE (= BYOL loss up to normalization constant)
             # This is the TS Cross-Prediction term (up to -d/2 log(2pi))
@@ -483,6 +484,7 @@ class BYOL(BaseMomentumMethod):
             "h_predictor": h_predictor,
             "teacher_alignment": teacher_alignment,
             "student_alignment": student_alignment,
+            "predictor_alignment": predictor_alignment,
             "cross_prediction_mse": cross_prediction_mse,
             "teacher_self_prediction_mse": teacher_self_prediction_mse,
             "train_student_uniformity": student_uniformity,
