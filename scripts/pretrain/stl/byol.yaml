@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-400epochs-r50-track-bs-512-predictor-free-stl"
+name: "byol-400epochs-r50-track-bs-512-freeze-teacher-at-75-epochs-no-abs-innovation-stl"
 method: "byol"
 backbone:
   name: "resnet50"
@@ -24,8 +24,8 @@ momentum:
   final_tau: 0.99 # 1.0
 data:
   dataset: stl10
-  train_path: "./datasets"
-  val_path: "./datasets"
+  train_path: "/lustre/fswork/projects/rech/haj/uik24xv/local/stl10"
+  val_path: "/lustre/fswork/projects/rech/haj/uik24xv/local/stl10"
   format: "image_folder"
   num_workers: 4
 optimizer:
