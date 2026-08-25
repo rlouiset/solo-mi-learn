@@ -410,6 +410,7 @@ class BYOL(BaseMomentumMethod):
             # Uniformity-based entropy (backward compat with existing plots)
             student_uniformity = (uniform_loss_func(z0) + uniform_loss_func(z1)) / 2
             teacher_uniformity = (uniform_loss_func(zm0) + uniform_loss_func(zm1)) / 2
+            predictor_uniformity = (uniform_loss_func(p0) + uniform_loss_func(p1)) / 2
 
             # =============================================
             # SECTION 3.2: Predictor quality (Proposition 1)
@@ -489,6 +490,7 @@ class BYOL(BaseMomentumMethod):
             "teacher_self_prediction_mse": teacher_self_prediction_mse,
             "train_student_uniformity": student_uniformity,
             "train_teacher_uniformity": teacher_uniformity,
+            "train_predictor_uniformity": predictor_uniformity,
             # Section 4.1: Assumption 1 (interpolation)
             "interpolation_check_norm": interpolation_check_norm,
             "interpolation_check_raw": interpolation_check_raw,

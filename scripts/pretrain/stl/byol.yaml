@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-400epochs-r50-track-bs-512-freeze-teacher-at-75-epochs-no-abs-innovation-stl"
+name: "byol-400epochs-r50-track-bs-512-freeze-teacher-at-75-epochs-stl"
 method: "byol"
 backbone:
   name: "resnet50"
