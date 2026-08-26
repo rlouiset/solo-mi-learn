@@ -29,6 +29,7 @@ from scipy.stats import anderson, normaltest
 from solo.losses.simsiam import simsiam_loss_func
 from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMethod
+from solo.utils.misc import omegaconf_select
 
 
 class SimSiam(BaseMethod):
@@ -49,6 +50,7 @@ class SimSiam(BaseMethod):
         pred_hidden_dim: int = cfg.method_kwargs.pred_hidden_dim
 
         self.au_scale_loss = cfg.method_kwargs.au_scale_loss
+        self.predictor_lr_mult: float = cfg.optimizer.predictor_lr_mult
 
         # projector
         self.projector = nn.Sequential(
@@ -88,6 +90,8 @@ class SimSiam(BaseMethod):
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.proj_hidden_dim")
         assert not omegaconf.OmegaConf.is_missing(cfg, "method_kwargs.pred_hidden_dim")
 
+        cfg.optimizer.predictor_lr_mult = omegaconf_select(cfg, "optimizer.predictor_lr_mult", 10)
+
         return cfg
 
     @property
@@ -103,8 +107,8 @@ class SimSiam(BaseMethod):
             {
                 "name": "predictor",
                 "params": self.predictor.parameters(),
-                "lr": self.lr * 10,
-                "static_lr": True,
+                "lr": self.lr * self.predictor_lr_mult,
+                "lr_mult": self.predictor_lr_mult,
             },
         ]
         return super().learnable_params + extra_learnable_params

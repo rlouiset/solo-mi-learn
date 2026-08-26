@@ -69,6 +69,22 @@ def static_lr(
     return lrs
 
 
+def scaled_lr(
+    get_lr: Callable,
+    param_group_indexes: Sequence[int],
+    multipliers: Sequence[float],
+    reference_index: int = 0,
+):
+    """Keeps param groups at a fixed multiple of another group's LR, tracking whatever
+    warmup/decay schedule that reference group follows at every step (unlike static_lr,
+    which freezes the group at a constant value regardless of the schedule)."""
+    lrs = get_lr()
+    ref_lr = lrs[reference_index]
+    for idx, mult in zip(param_group_indexes, multipliers):
+        lrs[idx] = mult * ref_lr
+    return lrs
+
+
 class BaseMethod(pl.LightningModule):
     _BACKBONES = {
         "resnet18": resnet18,
@@ -344,6 +360,9 @@ class BaseMethod(pl.LightningModule):
         # indexes of parameters without lr scheduler
         idxs_no_scheduler = [i for i, m in enumerate(learnable_params) if m.pop("static_lr", False)]
 
+        # indexes of parameters whose lr tracks a multiple of the backbone's scheduled lr
+        lr_mults = {i: mult for i, m in enumerate(learnable_params) if (mult := m.pop("lr_mult", None)) is not None}
+
         assert self.optimizer in self._OPTIMIZERS
         optimizer = self._OPTIMIZERS[self.optimizer]
 
@@ -393,6 +412,20 @@ class BaseMethod(pl.LightningModule):
                 else scheduler.get_lr,
                 param_group_indexes=idxs_no_scheduler,
                 lrs_to_replace=[learnable_params[i].get("lr", self.lr) for i in idxs_no_scheduler],
+            )
+            if isinstance(scheduler, dict):
+                scheduler["scheduler"].get_lr = partial_fn
+            else:
+                scheduler.get_lr = partial_fn
+
+        if lr_mults:
+            partial_fn = partial(
+                scaled_lr,
+                get_lr=scheduler["scheduler"].get_lr
+                if isinstance(scheduler, dict)
+                else scheduler.get_lr,
+                param_group_indexes=list(lr_mults.keys()),
+                multipliers=list(lr_mults.values()),
             )
             if isinstance(scheduler, dict):
                 scheduler["scheduler"].get_lr = partial_fn
