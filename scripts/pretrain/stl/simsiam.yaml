@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "simsiam-dim256-400epochs-r50-bs1024-stl10"
+name: "simsiam-dim256-400epochs-r50-bs1024-predictorlrx10-stl10"
 method: "simsiam"
 backbone:
   name: "resnet50"
