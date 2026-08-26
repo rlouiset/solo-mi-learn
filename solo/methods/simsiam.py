@@ -17,12 +17,15 @@
 # OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+import math
 from typing import Any, Dict, List, Sequence
 
+import numpy as np
 import omegaconf
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from scipy.stats import anderson, normaltest
 from solo.losses.simsiam import simsiam_loss_func
 from solo.losses.robyol import uniform_loss_func, align_loss_func
 from solo.methods.base import BaseMethod
@@ -149,10 +152,102 @@ class SimSiam(BaseMethod):
         z2_std = F.normalize(z2, dim=-1).std(dim=0).mean()
         z_std = (z1_std + z2_std) / 2
 
+        # ------- diagnostics (no grad) -------
+        with torch.no_grad():
+
+            # L2-normalized representations (on the hypersphere)
+            z1n = F.normalize(z1, dim=-1)  # student, view 1
+            z2n = F.normalize(z2, dim=-1)  # student, view 2
+            p1n = F.normalize(p1, dim=-1)  # predictor, view 1
+            p2n = F.normalize(p2, dim=-1)  # predictor, view 2
+
+            # KDE entropy estimator (same as BYOL)
+            def kde_entropy(z, sigma=1.0):
+                """KDE entropy estimator on normalized representations.
+                H(Z) ~ -1/N sum_i log(1/(N-1) sum_{j!=i} exp(-||z_i-z_j||^2 / 2sigma^2))
+                """
+                dists_sq = torch.cdist(z, z, p=2).pow(2)
+                B = z.shape[0]
+                mask = ~torch.eye(B, dtype=torch.bool, device=z.device)
+                log_density = torch.logsumexp(
+                    -dists_sq[mask].view(B, B - 1) / (2 * sigma ** 2), dim=1
+                ) - math.log(B - 1)
+                return -log_density.mean()
+
+            # Marginal entropies H(Z_phi), H(Z_{phi,psi})
+            h_student = (kde_entropy(z1n) + kde_entropy(z2n)) / 2
+            h_predictor = (kde_entropy(p1n) + kde_entropy(p2n)) / 2
+
+            # SimSiam has no separate momentum network: the stop-gradient branch
+            # IS the online z, so the "teacher" signal equals the student one by
+            # construction. Aliased under BYOL's naming for direct wandb comparison.
+            h_teacher = h_student
+
+            # Alignment: E[||z(v1) - z(v2)||^2] / 2
+            student_alignment = (z1n - z2n).pow(2).sum(dim=1).mean() / 2
+            predictor_alignment = (p1n - p2n).pow(2).sum(dim=1).mean() / 2
+
+            # Cross-prediction MSE: predictor(view) vs. stop-grad target (other view)
+            cross_prediction_mse = (
+                (p1n - z2n).pow(2).sum(dim=1).mean()
+                + (p2n - z1n).pow(2).sum(dim=1).mean()
+            ) / 2
+
+            # Uniformity
+            student_uniformity = (uniform_loss_func(z1n) + uniform_loss_func(z2n)) / 2
+            predictor_uniformity = (uniform_loss_func(p1n) + uniform_loss_func(p2n)) / 2
+
         metrics = {
             "train_neg_cos_sim": neg_cos_sim,
             "train_z_std": z_std,
+            "h_student": h_student,
+            "h_predictor": h_predictor,
+            "student_alignment": student_alignment,
+            "predictor_alignment": predictor_alignment,
+            "cross_prediction_mse": cross_prediction_mse,
+            "train_student_uniformity": student_uniformity,
+            "train_predictor_uniformity": predictor_uniformity,
         }
+
+        # =============================================
+        # EXPENSIVE DIAGNOSTICS (every N steps): per-coordinate Gaussianity
+        # =============================================
+        if batch_idx % 100 == 0:
+            with torch.no_grad():
+                for name, tensor in [("student", z1n), ("predictor", p1n)]:
+                    t_np = tensor.detach().cpu().numpy()
+                    n_samples, d_dim = t_np.shape
+
+                    ad_stats = []
+                    dp_pvals = []
+
+                    for j in range(d_dim):
+                        col = t_np[:, j]
+                        col_std = (col - col.mean()) / (col.std() + 1e-10)
+
+                        # Anderson-Darling test
+                        ad_result = anderson(col_std, dist='norm')
+                        ad_stats.append(ad_result.statistic)
+
+                        # D'Agostino-Pearson test
+                        if n_samples >= 20:
+                            _, dp_pval = normaltest(col)
+                            dp_pvals.append(dp_pval)
+
+                    ad_stats = np.array(ad_stats)
+                    # AD < 0.752 => cannot reject Gaussianity at 5% level
+                    metrics[f"{name}_coord_ad_frac_gaussian"] = float(
+                        (ad_stats < 0.752).mean())
+                    metrics[f"{name}_coord_ad_avg"] = float(ad_stats.mean())
+
+                    if len(dp_pvals) > 0:
+                        dp_pvals = np.array(dp_pvals)
+                        # p > 0.05 => cannot reject Gaussianity
+                        metrics[f"{name}_coord_dp_frac_gaussian"] = float(
+                            (dp_pvals > 0.05).mean())
+                        metrics[f"{name}_coord_dp_avg_pval"] = float(
+                            dp_pvals.mean())
+
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
         return neg_cos_sim + class_loss + self.au_scale_loss * au_loss

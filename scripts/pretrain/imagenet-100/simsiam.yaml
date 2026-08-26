@@ -23,8 +23,8 @@ method_kwargs:
   au_scale_loss: 0.01
 data:
   dataset: imagenet100
-  train_path: "/home/ids/rareme/imagenet-100/train"
-  val_path: "/home/ids/rareme/imagenet-100/val"
+  train_path: "/lustre/fsn1/projects/rech/haj/uik24xv/imagenet100/train"
+  val_path: "/lustre/fsn1/projects/rech/haj/uik24xv/imagenet100/val"
   format: "dali"
   num_workers: 4
 optimizer:
