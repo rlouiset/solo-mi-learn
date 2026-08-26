@@ -8,7 +8,7 @@
 #SBATCH --gpus-per-node=1
 #SBATCH --constraint a100
 #SBATCH --account haj@a100
-#SBATCH --output byol_cifar10.txt
+#SBATCH --output byol_cifar100.txt
 
 module purge # purge modules inherited by default
 conda deactivate # deactivate environments inherited by default
