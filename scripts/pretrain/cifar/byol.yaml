@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "byol-bs-1024-cifar10-freeze-teacher-at-75-epochs" # change here for cifar100
+name: "byol-bs-1024-cifar10-freeze-teacher-at-150-epochs" # change here for cifar100
 method: "byol"
 backbone:
   name: "resnet18"
