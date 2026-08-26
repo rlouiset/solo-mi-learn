@@ -839,7 +839,7 @@ class BaseMomentumMethod(BaseMethod):
                 [X] is a list of size self.num_crops containing batches of images.
             batch_idx (int): index of the batch.
         """
-        if self.current_epoch < 100:
+        if self.current_epoch < 125:
             if self.trainer.global_step > self.last_step:
                 # update momentum backbone and projector
                 momentum_pairs = self.momentum_pairs
