@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "simsiam-dim256-400epochs-r50-bs1024-weight_decay1e-4-lr0.1-pr32-stl10"
+name: "simsiam-dim256-400epochs-r50-bs1024-weight_decay1e-4-lr0.1-predictorlr0.2-static-stl10"
 method: "simsiam"
 backbone:
   name: "resnet50"
@@ -33,7 +33,7 @@ optimizer:
   lr: 0.1
   classifier_lr: 0.1
   weight_decay: 1e-4
-  predictor_lr_mult: 1
+  predictor_lr: 0.2
 scheduler:
   name: "warmup_cosine"
 checkpoint:
