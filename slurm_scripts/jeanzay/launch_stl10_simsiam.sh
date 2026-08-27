@@ -8,7 +8,7 @@
 #SBATCH --gpus-per-node=1
 #SBATCH --constraint h100
 #SBATCH --account haj@h100
-#SBATCH --output simsiam_stl_x2.txt
+#SBATCH --output simsiam_stl_x2lr2.txt
 
 module purge # purge modules inherited by default
 conda deactivate # deactivate environments inherited by default
