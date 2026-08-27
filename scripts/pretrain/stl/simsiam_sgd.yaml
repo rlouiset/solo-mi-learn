@@ -11,7 +11,7 @@ hydra:
   run:
     dir: .
 
-name: "simsiam-dim256-400epochs-r50-bs1024-lars-lr2.0-stl10"
+name: "simsiam-dim256-400epochs-r50-bs1024-weight_decay1e-4-lr0.2-stl10"
 method: "simsiam"
 backbone:
   name: "resnet50"
@@ -28,16 +28,12 @@ data:
   format: "image_folder"
   num_workers: 4
 optimizer:
-  name: "lars"
+  name: "sgd"
   batch_size: 1024
-  lr: 2.0
-  classifier_lr: 0.2
-  weight_decay: 1e-5
+  lr: 0.2
+  classifier_lr: 0.1
+  weight_decay: 1e-4
   predictor_lr_mult: 1
-  kwargs:
-    clip_lr: True
-    eta: 0.02
-    exclude_bias_n_norm: True
 scheduler:
   name: "warmup_cosine"
 checkpoint:
