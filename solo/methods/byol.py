@@ -321,7 +321,6 @@ class BYOL(BaseMomentumMethod):
         out.update({"z": z})
         return out
 
-
     # =====================================================================
     # training_step
     # =====================================================================
@@ -391,23 +390,28 @@ class BYOL(BaseMomentumMethod):
         # =================================================================
         diag_every = getattr(self, "diag_every", 100)  # use ~10 for small (medical) datasets
         if batch_idx % diag_every == 0:
-            with torch.no_grad(), torch.cuda.amp.autocast(enabled=False), preserve_buffers(
-                    self.backbone, self.projector, self.momentum_backbone, self.momentum_projector
-            ):
+            with torch.no_grad(), torch.amp.autocast("cuda", enabled=False):
                 tau = 0.99  # EMA coefficient (fixed in our runs)
                 c = 1.0 - tau
                 X_crop = batch[1][0].float()  # same crop as Z[0] / Z_momentum[0]
 
+                # All diagnostic forwards run on COPIES of the networks, so the live student's
+                # BatchNorm buffers (saved by autograd for the backward pass) are never modified.
+                #   tau = 1 -> copy of the teacher,  tau = 0 -> copy of the student
+                def forward_copy(t):
+                    bb = interpolate_network(self.backbone, self.momentum_backbone, t)
+                    prj = interpolate_network(self.projector, self.momentum_projector, t)
+                    z = F.normalize(prj(bb(X_crop)), dim=-1)
+                    del bb, prj
+                    return z
+
                 # fp32 recompute so that all quantities share the same precision
-                zm0_32 = F.normalize(self.momentum_projector(self.momentum_backbone(X_crop)), dim=-1)
-                z0_32 = F.normalize(self.projector(self.backbone(X_crop)), dim=-1)
+                zm0_32 = forward_copy(1.0)  # teacher
+                z0_32 = forward_copy(0.0)  # student
                 eta_32 = tangential_tsd(z0_32, zm0_32)
 
                 # ---- Assumption 1: first-order EMA step on the sphere ----
-                # CHECK argument order: must give tau * teacher + (1 - tau) * student
-                interp_bb = interpolate_network(self.backbone, self.momentum_backbone, tau)
-                interp_prj = interpolate_network(self.projector, self.momentum_projector, tau)
-                z_interp = F.normalize(interp_prj(interp_bb(X_crop)), dim=-1)
+                z_interp = forward_copy(tau)  # tau * teacher + (1 - tau) * student
 
                 z_pred = F.normalize(zm0_32 + c * eta_32, dim=-1)
                 step_size = torch.norm(z_interp - zm0_32, dim=1).mean()  # how far the teacher moves
@@ -418,8 +422,6 @@ class BYOL(BaseMomentumMethod):
 
                 # ---- Lemma 1: one-step teacher entropy change (same view, same precision) ----
                 metrics["lemma1_h_diff"] = kde_entropy(z_interp) - kde_entropy(zm0_32)
-
-                del interp_bb, interp_prj
 
             with torch.no_grad():
                 # ---- Gaussianity (Sec. 8.1), per-coordinate AD / DP tests (Betser et al.) ----
@@ -446,15 +448,13 @@ class BYOL(BaseMomentumMethod):
         self.log_dict(metrics, on_epoch=True, sync_dist=False)
         return neg_cos_sim + class_loss
 
-# =====================================================================
-# Module-level helpers (define once, outside the class)
-# =====================================================================
+
 import math
-from contextlib import contextmanager
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+
 
 def kde_entropy(z, sigma=1.0):
     """KDE (resubstitution) entropy estimate on l2-normalized representations.
@@ -469,11 +469,13 @@ def kde_entropy(z, sigma=1.0):
     ) - math.log(B - 1)
     return -log_density.mean()
 
+
 def tangential_tsd(z_student, z_teacher):
     """Tangential teacher-student difference: part of the student orthogonal to the teacher.
     eta = Z_phi - <Z_phi, Z_theta> Z_theta   (both inputs l2-normalized)
     """
     return z_student - (z_student * z_teacher).sum(-1, keepdim=True) * z_teacher
+
 
 def rv_coefficient(x, y):
     """RV coefficient in [0, 1]; 0 iff all cross-covariances between x and y vanish."""
@@ -482,16 +484,6 @@ def rv_coefficient(x, y):
     Cxy, Cxx, Cyy = xc.T @ yc, xc.T @ xc, yc.T @ yc
     return (Cxy * Cxy).sum() / torch.sqrt((Cxx * Cxx).sum() * (Cyy * Cyy).sum() + 1e-12)
 
-@contextmanager
-def preserve_buffers(*modules):
-    """Run diagnostic forward passes without changing BatchNorm running statistics."""
-    saved = [{k: v.clone() for k, v in m.named_buffers()} for m in modules]
-    try:
-        yield
-    finally:
-        for m, buf in zip(modules, saved):
-            for k, v in m.named_buffers():
-                v.copy_(buf[k])
 
 @torch.no_grad()
 def interpolate_network(online_net: torch.nn.Module, momentum_net: torch.nn.Module, tau: float):
