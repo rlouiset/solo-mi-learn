@@ -350,7 +350,8 @@ class BYOL(BaseMomentumMethod):
         # =================================================================
         # EVERY STEP: cheap diagnostics
         # =================================================================
-        with torch.no_grad():
+        # autocast OFF: otherwise matmuls / cdist silently run in fp16 despite .float()
+        with torch.no_grad(), torch.amp.autocast("cuda", enabled=False), full_fp32():
             # l2-normalized representations, cast to fp32 for stable statistics
             z0 = F.normalize(Z[0].float(), dim=-1)  # student, view 1
             z1 = F.normalize(Z[1].float(), dim=-1)  # student, view 2
@@ -384,13 +385,20 @@ class BYOL(BaseMomentumMethod):
             perm = torch.randperm(eta.shape[0], device=eta.device)
             metrics["a2_rv"] = rv_coefficient(eta, zm0)
             metrics["a2_rv_null"] = rv_coefficient(eta[perm], zm0)  # independence baseline
+            # rolling buffer of (teacher, TSD) pairs for the R^2 diagnostic (needs n >> d)
+            if not hasattr(self, "_r2_buffer"):
+                self._r2_buffer = []
+            self._r2_buffer.append((zm0.detach(), eta.detach()))
+            r2_samples = getattr(self, "r2_samples", 10240)
+            while sum(b[0].shape[0] for b in self._r2_buffer) > r2_samples:
+                self._r2_buffer.pop(0)
 
         # =================================================================
         # EVERY N STEPS: expensive diagnostics
         # =================================================================
         diag_every = getattr(self, "diag_every", 100)  # use ~10 for small (medical) datasets
         if batch_idx % diag_every == 0:
-            with torch.no_grad(), torch.amp.autocast("cuda", enabled=False):
+            with torch.no_grad(), torch.amp.autocast("cuda", enabled=False), full_fp32():
                 tau = 0.99  # EMA coefficient (fixed in our runs)
                 c = 1.0 - tau
                 X_crop = batch[1][0].float()  # same crop as Z[0] / Z_momentum[0]
@@ -413,6 +421,10 @@ class BYOL(BaseMomentumMethod):
                 # ---- Assumption 1: first-order EMA step on the sphere ----
                 z_interp = forward_copy(tau)  # tau * teacher + (1 - tau) * student
 
+                # numerical noise floor: a second teacher copy should give identical outputs;
+                # a1_rel_err is only meaningful when a1_step_size >> a1_noise_floor
+                metrics["a1_noise_floor"] = torch.norm(forward_copy(1.0) - zm0_32, dim=1).mean()
+
                 z_pred = F.normalize(zm0_32 + c * eta_32, dim=-1)
                 step_size = torch.norm(z_interp - zm0_32, dim=1).mean()  # how far the teacher moves
                 abs_err = torch.norm(z_interp - z_pred, dim=1).mean()
@@ -422,6 +434,13 @@ class BYOL(BaseMomentumMethod):
 
                 # ---- Lemma 1: one-step teacher entropy change (same view, same precision) ----
                 metrics["lemma1_h_diff"] = kde_entropy(z_interp) - kde_entropy(zm0_32)
+
+                # ---- Assumption 2: how much of the TSD the teacher explains linearly ----
+                # computed on the rolling buffer (~10k samples); only once it is full enough
+                buf_z = torch.cat([b[0] for b in self._r2_buffer])
+                buf_eta = torch.cat([b[1] for b in self._r2_buffer])
+                if buf_z.shape[0] >= 0.9 * getattr(self, "r2_samples", 10240):
+                    metrics["a2_r2"] = linear_r2(buf_z, buf_eta)
 
             with torch.no_grad():
                 # ---- Gaussianity (Sec. 8.1), per-coordinate AD / DP tests (Betser et al.) ----
@@ -449,12 +468,26 @@ class BYOL(BaseMomentumMethod):
         return neg_cos_sim + class_loss
 
 
+# =====================================================================
+# Module-level helpers (define once, outside the class)
+# =====================================================================
 import math
+from contextlib import contextmanager
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 
+@contextmanager
+def full_fp32():
+    """Disable TF32 (on by default for convolutions on A100/H100) during diagnostics only."""
+    old = (torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32)
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+    try:
+        yield
+    finally:
+        torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32 = old
 
 def kde_entropy(z, sigma=1.0):
     """KDE (resubstitution) entropy estimate on l2-normalized representations.
@@ -469,13 +502,29 @@ def kde_entropy(z, sigma=1.0):
     ) - math.log(B - 1)
     return -log_density.mean()
 
-
 def tangential_tsd(z_student, z_teacher):
     """Tangential teacher-student difference: part of the student orthogonal to the teacher.
     eta = Z_phi - <Z_phi, Z_theta> Z_theta   (both inputs l2-normalized)
     """
     return z_student - (z_student * z_teacher).sum(-1, keepdim=True) * z_teacher
 
+def linear_r2(x, y, alpha=1e-3):
+    """Held-out fraction of y's variance explained by a linear (ridge) map of x.
+    ~0 (or slightly negative): no linear dependence;  1: y is exactly linear in x.
+    Needs n >> d (use ~10k samples for d = 256): random 50/50 train/test split."""
+    x, y = x.float(), y.float()
+    idx = torch.randperm(x.shape[0], device=x.device)
+    x, y = x[idx], y[idx]
+    n = x.shape[0] // 2
+    xtr, xte, ytr, yte = x[:n], x[n:], y[:n], y[n:]
+    mx, my = xtr.mean(0), ytr.mean(0)
+    Xc, Yc = xtr - mx, ytr - my
+    G = Xc.T @ Xc
+    lam = alpha * torch.trace(G) / x.shape[1]
+    eye = torch.eye(x.shape[1], device=x.device, dtype=x.dtype)
+    W = torch.linalg.solve(G + lam * eye, Xc.T @ Yc)
+    pred = (xte - mx) @ W + my
+    return 1 - ((yte - pred) ** 2).sum() / (((yte - yte.mean(0)) ** 2).sum() + 1e-12)
 
 def rv_coefficient(x, y):
     """RV coefficient in [0, 1]; 0 iff all cross-covariances between x and y vanish."""
