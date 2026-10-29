@@ -447,51 +447,51 @@ class BYOL(BaseMomentumMethod):
         return neg_cos_sim + class_loss
 
 # =====================================================================
-    # Module-level helpers (define once, outside the class)
-    # =====================================================================
-    import math
-    from contextlib import contextmanager
+# Module-level helpers (define once, outside the class)
+# =====================================================================
+import math
+from contextlib import contextmanager
 
-    import numpy as np
-    import torch
-    import torch.nn.functional as F
+import numpy as np
+import torch
+import torch.nn.functional as F
 
-    def kde_entropy(z, sigma=1.0):
-        """KDE (resubstitution) entropy estimate on l2-normalized representations.
-        H(Z) ~ -1/N sum_i log( 1/(N-1) sum_{j != i} exp(-||z_i - z_j||^2 / (2 sigma^2)) )
-        """
-        z = z.float()
-        dists_sq = torch.cdist(z, z, p=2).pow(2)
-        B = z.shape[0]
-        mask = ~torch.eye(B, dtype=torch.bool, device=z.device)
-        log_density = torch.logsumexp(
-            -dists_sq[mask].view(B, B - 1) / (2 * sigma ** 2), dim=1
-        ) - math.log(B - 1)
-        return -log_density.mean()
+def kde_entropy(z, sigma=1.0):
+    """KDE (resubstitution) entropy estimate on l2-normalized representations.
+    H(Z) ~ -1/N sum_i log( 1/(N-1) sum_{j != i} exp(-||z_i - z_j||^2 / (2 sigma^2)) )
+    """
+    z = z.float()
+    dists_sq = torch.cdist(z, z, p=2).pow(2)
+    B = z.shape[0]
+    mask = ~torch.eye(B, dtype=torch.bool, device=z.device)
+    log_density = torch.logsumexp(
+        -dists_sq[mask].view(B, B - 1) / (2 * sigma ** 2), dim=1
+    ) - math.log(B - 1)
+    return -log_density.mean()
 
-    def tangential_tsd(z_student, z_teacher):
-        """Tangential teacher-student difference: part of the student orthogonal to the teacher.
-        eta = Z_phi - <Z_phi, Z_theta> Z_theta   (both inputs l2-normalized)
-        """
-        return z_student - (z_student * z_teacher).sum(-1, keepdim=True) * z_teacher
+def tangential_tsd(z_student, z_teacher):
+    """Tangential teacher-student difference: part of the student orthogonal to the teacher.
+    eta = Z_phi - <Z_phi, Z_theta> Z_theta   (both inputs l2-normalized)
+    """
+    return z_student - (z_student * z_teacher).sum(-1, keepdim=True) * z_teacher
 
-    def rv_coefficient(x, y):
-        """RV coefficient in [0, 1]; 0 iff all cross-covariances between x and y vanish."""
-        x, y = x.float(), y.float()
-        xc, yc = x - x.mean(0), y - y.mean(0)
-        Cxy, Cxx, Cyy = xc.T @ yc, xc.T @ xc, yc.T @ yc
-        return (Cxy * Cxy).sum() / torch.sqrt((Cxx * Cxx).sum() * (Cyy * Cyy).sum() + 1e-12)
+def rv_coefficient(x, y):
+    """RV coefficient in [0, 1]; 0 iff all cross-covariances between x and y vanish."""
+    x, y = x.float(), y.float()
+    xc, yc = x - x.mean(0), y - y.mean(0)
+    Cxy, Cxx, Cyy = xc.T @ yc, xc.T @ xc, yc.T @ yc
+    return (Cxy * Cxy).sum() / torch.sqrt((Cxx * Cxx).sum() * (Cyy * Cyy).sum() + 1e-12)
 
-    @contextmanager
-    def preserve_buffers(*modules):
-        """Run diagnostic forward passes without changing BatchNorm running statistics."""
-        saved = [{k: v.clone() for k, v in m.named_buffers()} for m in modules]
-        try:
-            yield
-        finally:
-            for m, buf in zip(modules, saved):
-                for k, v in m.named_buffers():
-                    v.copy_(buf[k])
+@contextmanager
+def preserve_buffers(*modules):
+    """Run diagnostic forward passes without changing BatchNorm running statistics."""
+    saved = [{k: v.clone() for k, v in m.named_buffers()} for m in modules]
+    try:
+        yield
+    finally:
+        for m, buf in zip(modules, saved):
+            for k, v in m.named_buffers():
+                v.copy_(buf[k])
 
 @torch.no_grad()
 def interpolate_network(online_net: torch.nn.Module, momentum_net: torch.nn.Module, tau: float):
