@@ -321,17 +321,20 @@ class BYOL(BaseMomentumMethod):
         out.update({"z": z})
         return out
 
+
     # =====================================================================
     # training_step
     # =====================================================================
     def training_step(self, batch, batch_idx: int) -> torch.Tensor:
         """Training step for BYOL with information-theoretic diagnostics.
 
-        Every step (cheap):  entropies, alignments, cross-prediction, uniformity,
-                             Assumption 2 (RV coefficient of tangential TSD vs teacher).
-        Every N steps (expensive): Assumption 1 (interpolation check, needs an extra forward
-                             through an interpolated network), Lemma 1 (one-step entropy change),
-                             Gaussianity tests.
+        Every step (cheap):     entropies (h_teacher tracks Lemma 1's conclusion), alignments,
+                                cross-prediction, uniformity, Assumption 2 on the TSD eta
+                                (RV vs permutation null; eta pairs buffered for R^2).
+        Every diag_every steps: Assumption 1 accuracy (rel. error of the first-order EMA step,
+                                averaged over both views), noise floor, robustness check on the
+                                exact teacher increment Delta, held-out R^2 on ~10k-sample buffers.
+        Every gauss_every steps: per-coordinate Gaussianity tests.
         """
         out = super().training_step(batch, batch_idx)
         class_loss = out["loss"]
@@ -380,68 +383,77 @@ class BYOL(BaseMomentumMethod):
             metrics["train_teacher_uniformity"] = (uniform_loss_func(zm0) + uniform_loss_func(zm1)) / 2
             metrics["train_predictor_uniformity"] = (uniform_loss_func(p0) + uniform_loss_func(p1)) / 2
 
-            # ---- Assumption 2: tangential TSD vs teacher (linear signature) ----
+            # ---- Assumption 2: tangential TSD eta vs teacher (linear signature) ----
             eta = tangential_tsd(z0, zm0)
             perm = torch.randperm(eta.shape[0], device=eta.device)
-            metrics["a2_rv"] = rv_coefficient(eta, zm0)
-            metrics["a2_rv_null"] = rv_coefficient(eta[perm], zm0)  # independence baseline
-            # rolling buffer of (teacher, TSD) pairs for the R^2 diagnostic (needs n >> d)
-            if not hasattr(self, "_r2_buffer"):
-                self._r2_buffer = []
-            self._r2_buffer.append((zm0.detach(), eta.detach()))
-            r2_samples = getattr(self, "r2_samples", 10240)
-            while sum(b[0].shape[0] for b in self._r2_buffer) > r2_samples:
-                self._r2_buffer.pop(0)
+            metrics["eta_rv"] = rv_coefficient(eta, zm0)
+            metrics["eta_rv_null"] = rv_coefficient(eta[perm], zm0)  # independence baseline
+            push_buffer(self, "_eta_buffer", zm0, eta)
 
         # =================================================================
-        # EVERY N STEPS: expensive diagnostics
+        # EVERY N STEPS: expensive diagnostics (forwards through network copies)
         # =================================================================
-        diag_every = getattr(self, "diag_every", 100)  # use ~10 for small (medical) datasets
+        diag_every = getattr(self, "diag_every", 20)
         if batch_idx % diag_every == 0:
             with torch.no_grad(), torch.amp.autocast("cuda", enabled=False), full_fp32():
                 tau = 0.99  # EMA coefficient (fixed in our runs)
                 c = 1.0 - tau
-                X_crop = batch[1][0].float()  # same crop as Z[0] / Z_momentum[0]
 
                 # All diagnostic forwards run on COPIES of the networks, so the live student's
                 # BatchNorm buffers (saved by autograd for the backward pass) are never modified.
-                #   tau = 1 -> copy of the teacher,  tau = 0 -> copy of the student
-                def forward_copy(t):
+                #   t = 1 -> copy of the teacher,  t = 0 -> copy of the student,
+                #   t = tau -> next teacher (tau * teacher + (1 - tau) * student)
+                def forward_copy(t, X):
                     bb = interpolate_network(self.backbone, self.momentum_backbone, t)
                     prj = interpolate_network(self.projector, self.momentum_projector, t)
-                    z = F.normalize(prj(bb(X_crop)), dim=-1)
+                    z = F.normalize(prj(bb(X)), dim=-1)
                     del bb, prj
                     return z
 
-                # fp32 recompute so that all quantities share the same precision
-                zm0_32 = forward_copy(1.0)  # teacher
-                z0_32 = forward_copy(0.0)  # student
-                eta_32 = tangential_tsd(z0_32, zm0_32)
+                step_sizes, abs_errs, rel_errs = [], [], []
+                for v in range(2):  # both views; each view is a separate crop
+                    X_crop = batch[1][v].float()  # same crop for all three forwards
+                    zt = forward_copy(1.0, X_crop)  # teacher
+                    zs = forward_copy(0.0, X_crop)  # student
+                    z_next = forward_copy(tau, X_crop)  # actual next teacher
 
-                # ---- Assumption 1: first-order EMA step on the sphere ----
-                z_interp = forward_copy(tau)  # tau * teacher + (1 - tau) * student
+                    if v == 0:
+                        # numerical noise floor: a second teacher copy must give identical outputs
+                        metrics["a1_noise_floor"] = torch.norm(
+                            forward_copy(1.0, X_crop) - zt, dim=1).mean()
 
-                # numerical noise floor: a second teacher copy should give identical outputs;
-                # a1_rel_err is only meaningful when a1_step_size >> a1_noise_floor
-                metrics["a1_noise_floor"] = torch.norm(forward_copy(1.0) - zm0_32, dim=1).mean()
+                    # ---- Assumption 1: first-order EMA step, Z_next ~ normalize(Z + c * eta) ----
+                    eta_v = tangential_tsd(zs, zt)
+                    z_pred = F.normalize(zt + c * eta_v, dim=-1)
+                    step = torch.norm(z_next - zt, dim=1).mean()  # how far the teacher moves
+                    err = torch.norm(z_next - z_pred, dim=1).mean()
+                    step_sizes.append(step)
+                    abs_errs.append(err)
+                    rel_errs.append(err / (step + 1e-12))
 
-                z_pred = F.normalize(zm0_32 + c * eta_32, dim=-1)
-                step_size = torch.norm(z_interp - zm0_32, dim=1).mean()  # how far the teacher moves
-                abs_err = torch.norm(z_interp - z_pred, dim=1).mean()
-                metrics["a1_step_size"] = step_size
-                metrics["a1_abs_err"] = abs_err
-                metrics["a1_rel_err"] = abs_err / (step_size + 1e-12)  # ~0 good, ~1 useless
+                    # ---- Robustness: exact teacher increment Delta (no interpolation formula) ----
+                    delta = z_next - zt
+                    delta = delta - (delta * zt).sum(-1, keepdim=True) * zt  # tangential part
+                    push_buffer(self, "_delta_buffer", zt, delta)
+                    if v == 0:
+                        perm = torch.randperm(delta.shape[0], device=delta.device)
+                        metrics["a2_rv"] = rv_coefficient(delta, zt)
+                        metrics["a2_rv_null"] = rv_coefficient(delta[perm], zt)
 
-                # ---- Lemma 1: one-step teacher entropy change (same view, same precision) ----
-                metrics["lemma1_h_diff"] = kde_entropy(z_interp) - kde_entropy(zm0_32)
+                # Assumption 1 accuracy, averaged over the two views (errors averaged, not reps)
+                metrics["a1_step_size"] = torch.stack(step_sizes).mean()
+                metrics["a1_abs_err"] = torch.stack(abs_errs).mean()
+                metrics["a1_rel_err"] = torch.stack(rel_errs).mean()  # ~0 good, ~1 useless
 
-                # ---- Assumption 2: how much of the TSD the teacher explains linearly ----
-                # computed on the rolling buffer (~10k samples); only once it is full enough
-                buf_z = torch.cat([b[0] for b in self._r2_buffer])
-                buf_eta = torch.cat([b[1] for b in self._r2_buffer])
-                if buf_z.shape[0] >= 0.9 * getattr(self, "r2_samples", 10240):
-                    metrics["a2_r2"] = linear_r2(buf_z, buf_eta)
+                # held-out linear R^2 on rolling buffers (~10k samples, needs n >> d)
+                r2 = buffer_r2(self, "_eta_buffer")
+                if r2 is not None:
+                    metrics["eta_r2"] = r2  # Assumption 2: teacher -> TSD eta
+                r2 = buffer_r2(self, "_delta_buffer")
+                if r2 is not None:
+                    metrics["a2_r2"] = r2  # robustness: teacher -> increment Delta
 
+        if batch_idx % getattr(self, "gauss_every", 100) == 0:
             with torch.no_grad():
                 # ---- Gaussianity (Sec. 8.1), per-coordinate AD / DP tests (Betser et al.) ----
                 from scipy.stats import anderson, normaltest
@@ -466,6 +478,7 @@ class BYOL(BaseMomentumMethod):
 
         self.log_dict(metrics, on_epoch=True, sync_dist=False)
         return neg_cos_sim + class_loss
+
 
 
 # =====================================================================
@@ -526,13 +539,34 @@ def linear_r2(x, y, alpha=1e-3):
     pred = (xte - mx) @ W + my
     return 1 - ((yte - pred) ** 2).sum() / (((yte - yte.mean(0)) ** 2).sum() + 1e-12)
 
+def push_buffer(module, name, z, v, max_samples=None):
+    """Append (teacher, vector) pairs to a rolling buffer stored on the module."""
+    if max_samples is None:
+        max_samples = getattr(module, "r2_samples", 10240)
+    if not hasattr(module, name):
+        setattr(module, name, [])
+    buf = getattr(module, name)
+    buf.append((z.detach().float(), v.detach().float()))
+    while sum(b[0].shape[0] for b in buf) > max_samples:
+        buf.pop(0)
+
+def buffer_r2(module, name):
+    """Held-out linear R^2 (teacher -> vector) on a rolling buffer, once it is ~full."""
+    buf = getattr(module, name, [])
+    if not buf:
+        return None
+    z = torch.cat([b[0] for b in buf])
+    v = torch.cat([b[1] for b in buf])
+    if z.shape[0] < 0.9 * getattr(module, "r2_samples", 10240):
+        return None
+    return linear_r2(z, v)
+
 def rv_coefficient(x, y):
     """RV coefficient in [0, 1]; 0 iff all cross-covariances between x and y vanish."""
     x, y = x.float(), y.float()
     xc, yc = x - x.mean(0), y - y.mean(0)
     Cxy, Cxx, Cyy = xc.T @ yc, xc.T @ xc, yc.T @ yc
     return (Cxy * Cxy).sum() / torch.sqrt((Cxx * Cxx).sum() * (Cyy * Cyy).sum() + 1e-12)
-
 
 @torch.no_grad()
 def interpolate_network(online_net: torch.nn.Module, momentum_net: torch.nn.Module, tau: float):
