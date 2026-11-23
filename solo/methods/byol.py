@@ -390,6 +390,17 @@ class BYOL(BaseMomentumMethod):
             metrics["eta_rv_null"] = rv_coefficient(eta[perm], zm0)  # independence baseline
             push_buffer(self, "_eta_buffer", zm0, eta)
 
+        # ---- Section 6.1 (Prop. 3): EMA-induced change of the BYOL loss ----
+        # loss change <= -2c * alignment + c^2 * mean||eta||^2  (student & predictor fixed)
+        # pairing as in the BYOL loss: teacher on view v  <->  prediction from the other view
+        c = 1.0 - 0.99
+        eta1 = tangential_tsd(z1, zm1)  # TSD on view 2 (eta = view 1)
+        align = ((eta * p1).sum(1).mean() + (eta1 * p0).sum(1).mean()) / 2
+        eta_sq = ((eta ** 2).sum(1).mean() + (eta1 ** 2).sum(1).mean()) / 2
+        metrics["prop3_alignment"] = align  # first-order term: want > 0
+        metrics["prop3_cost"] = c / 2 * eta_sq  # condition: alignment >= cost
+        metrics["prop3_bound"] = -2 * c * align + c ** 2 * eta_sq  # want <= 0
+
         # =================================================================
         # EVERY N STEPS: expensive diagnostics (forwards through network copies)
         # =================================================================
@@ -410,12 +421,17 @@ class BYOL(BaseMomentumMethod):
                     del bb, prj
                     return z
 
-                step_sizes, abs_errs, rel_errs = [], [], []
+                step_sizes, abs_errs, rel_errs, actual_changes = [], [], [], []
                 for v in range(2):  # both views; each view is a separate crop
                     X_crop = batch[1][v].float()  # same crop for all three forwards
                     zt = forward_copy(1.0, X_crop)  # teacher
                     zs = forward_copy(0.0, X_crop)  # student
                     z_next = forward_copy(tau, X_crop)  # actual next teacher
+
+                    # ---- Prop. 3 check: actual EMA-induced loss change (exact, renormalized) ----
+                    p_other = (p1 if v == 0 else p0)                # prediction from the other view
+                    actual = ((z_next - p_other) ** 2).sum(1).mean() - ((zt - p_other) ** 2).sum(1).mean()
+                    actual_changes.append(actual)
 
                     if v == 0:
                         # numerical noise floor: a second teacher copy must give identical outputs
@@ -444,6 +460,7 @@ class BYOL(BaseMomentumMethod):
                 metrics["a1_step_size"] = torch.stack(step_sizes).mean()
                 metrics["a1_abs_err"] = torch.stack(abs_errs).mean()
                 metrics["a1_rel_err"] = torch.stack(rel_errs).mean()  # ~0 good, ~1 useless
+                metrics["prop3_actual_change"] = torch.stack(actual_changes).mean()
 
                 # held-out linear R^2 on rolling buffers (~10k samples, needs n >> d)
                 r2 = buffer_r2(self, "_eta_buffer")
