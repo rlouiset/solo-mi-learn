@@ -32,7 +32,11 @@ from torchvision import transforms
 from torchvision.datasets import STL10, ImageFolder
 import medmnist
 
-from solo.data.classification_dataloader import NormalizeBW
+from solo.data.classification_dataloader import (
+    MEDMNIST_SIZE,
+    NormalizeBW,
+    medmnist_should_download,
+)
 
 try:
     from solo.data.h5_dataset import H5Dataset
@@ -360,11 +364,11 @@ def prepare_datasets(
     elif dataset in ["BloodMNIST", "PathMNIST", "DermaMNIST", "OCTMNIST", "TissueMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = dataset_with_index(DatasetClass)(
-            root=train_data_path,
+            root=str(train_data_path),
             split="train",
-            download=download,
+            download=medmnist_should_download(dataset, train_data_path, download),
             transform=transform,
-            size=128
+            size=MEDMNIST_SIZE,
         )
 
     elif dataset == "stl10":

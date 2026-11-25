@@ -1,0 +1,56 @@
+defaults:
+  - _self_
+  - augmentations: symmetric.yaml
+  - wandb: private.yaml
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+# disable hydra outputs
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+
+name: "byol-bs-1024-bloodmnist-track-tangential-and-sec6"
+method: "byol"
+backbone:
+  name: "resnet18"
+method_kwargs:
+  proj_hidden_dim: 4096
+  proj_output_dim: 256
+  pred_hidden_dim: 4096
+momentum:
+  base_tau: 0.99
+  final_tau: 0.99 # 1.0
+data:
+  dataset: BloodMNIST
+  train_path: "/lustre/fswork/projects/rech/haj/uik24xv/local/medmnist"
+  val_path: "/lustre/fswork/projects/rech/haj/uik24xv/local/medmnist"
+  format: "image_folder"
+  num_workers: 8
+optimizer:
+  name: "lars"
+  batch_size: 1024
+  lr: 2.0
+  classifier_lr: 0.2
+  weight_decay: 1e-5
+  kwargs:
+    clip_lr: True
+    eta: 0.02
+    exclude_bias_n_norm: True
+scheduler:
+  name: "warmup_cosine"
+checkpoint:
+  enabled: True
+  dir: "trained_models"
+  frequency: 1
+auto_resume:
+  enabled: True
+
+# overwrite PL stuff
+max_epochs: 400
+devices: [0]
+sync_batchnorm: True
+accelerator: "gpu"
+strategy: "auto"
+precision: 16-mixed

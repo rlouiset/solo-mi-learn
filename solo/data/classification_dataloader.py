@@ -39,6 +39,21 @@ else:
     _h5_available = True
 
 
+MEDMNIST_SIZE = 128
+
+
+def medmnist_should_download(dataset: str, root: Union[str, Path], download: bool = True) -> bool:
+    """Only download MedMNIST when the .npz is missing from ``root``.
+
+    Jean Zay compute nodes have no internet access: the data is fetched beforehand on the
+    login node (scripts/utils/download_medmnist.py) and must never be re-downloaded here.
+    This also skips torchvision's md5 check, which re-reads the multi-GB file each time.
+    """
+    flag = dataset.lower()
+    fname = f"{flag}.npz" if MEDMNIST_SIZE == 28 else f"{flag}_{MEDMNIST_SIZE}.npz"
+    return download and not os.path.isfile(os.path.join(str(root), fname))
+
+
 def build_custom_pipeline():
     """Builds augmentation pipelines for custom data.
     If you want to do exoteric augmentations, you can just re-write this function.
@@ -285,20 +300,18 @@ def prepare_datasets(
     elif dataset in ["BloodMNIST", "PathMNIST", "OCTMNIST", "DermaMNIST", "OrganAMNIST", "TissueMNIST"]:
         DatasetClass = vars(medmnist)[dataset]
         train_dataset = DatasetClass(
-            root=train_data_path,
+            root=str(train_data_path),
             split="train",
-            download=True,
+            download=medmnist_should_download(dataset, train_data_path, download),
             transform=T_train,
-            size=128
+            size=MEDMNIST_SIZE,
         )
-
-        DatasetClass = vars(medmnist)[dataset]
         val_dataset = DatasetClass(
-            root=val_data_path,
+            root=str(val_data_path),
             split="test",
-            download=download,
+            download=medmnist_should_download(dataset, val_data_path, download),
             transform=T_val,
-            size=128
+            size=MEDMNIST_SIZE,
         )
 
     elif dataset == "stl10":
